@@ -32,7 +32,7 @@ permission to start only the deployment project:
       "Sid": "ReadUploadedModels",
       "Effect": "Allow",
       "Action": ["s3:GetObject", "s3:GetObjectVersion"],
-      "Resource": "arn:aws:s3:::MODEL_BUCKET/models/*"
+      "Resource": "arn:aws:s3:::mlops-yolov5-models/models/*"
     },
     {
       "Sid": "AuthenticateEcr",
@@ -50,13 +50,13 @@ permission to start only the deployment project:
         "ecr:PutImage",
         "ecr:UploadLayerPart"
       ],
-      "Resource": "arn:aws:ecr:REGION:ACCOUNT_ID:repository/mlops-yolov5"
+      "Resource": "arn:aws:ecr:us-east-1:107072320163:repository/mlops-yolov5"
     },
     {
       "Sid": "PublishDeploymentStatus",
       "Effect": "Allow",
       "Action": "sns:Publish",
-      "Resource": "arn:aws:sns:REGION:ACCOUNT_ID:mlops-yolov5-deployments"
+      "Resource": "arn:aws:sns:us-east-1:107072320163:mlops-yolov5-deployments"
     },
     {
       "Sid": "WriteBuildLogs",
@@ -66,16 +66,15 @@ permission to start only the deployment project:
         "logs:CreateLogStream",
         "logs:PutLogEvents"
       ],
-      "Resource": "arn:aws:logs:REGION:ACCOUNT_ID:log-group:/aws/codebuild/mlops-yolov5-deploy:*"
+      "Resource": "arn:aws:logs:us-east-1:107072320163:log-group:/aws/codebuild/mlops-yolov5-deploy:*"
     }
   ]
 }
 ```
 
 If CodeBuild source is stored in S3, add `s3:GetObject` for that exact source
-location. If the Heroku key comes from Secrets Manager, add
-`secretsmanager:GetSecretValue` for that one secret and configure the build
-variable with type `SECRETS_MANAGER`.
+location. Add `secretsmanager:GetSecretValue` for the Hugging Face token secret
+and configure `HF_TOKEN` with type `SECRETS_MANAGER`.
 
 ## Trust Policies
 

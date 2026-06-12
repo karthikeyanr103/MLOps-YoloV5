@@ -12,11 +12,12 @@ python -m pip install -r requirements-dev.txt
 
 Start from the repository root with `uvicorn app.main:app --reload`.
 
-## Endpoint Returns Placeholder Data
+## Endpoint Says YOLOv5s Is Not Installed
 
-This is expected when `models/<task>/model.onnx` is absent. Check `GET /health`
-and confirm `MODEL_ROOT` points to the parent model directory. Restart the
-process after adding a model because sessions are cached.
+Run `scripts/bootstrap_yolov5_to_s3.ps1` to create the first deployment. The
+resulting image must contain
+`models/object_detection/yolov5s.onnx`. Check `GET /health` and confirm
+`MODEL_ROOT` points to the parent model directory.
 
 ## ONNX Input Shape Error
 
@@ -24,11 +25,10 @@ The included preprocessor emits `[1, 3, 640, 640]` float32 input. Inspect the
 model with Netron or `session.get_inputs()`, then update size, layout, and
 normalization in `app/services/preprocessing.py`.
 
-## ONNX Output Is Raw
+## Segmentation Is Not Configured
 
-The repository cannot infer a model's label map or tensor contract. Implement
-model-specific decoding in `app/services/postprocessing.py`, including NMS,
-coordinate scaling, masks, or class names.
+This is expected with the default `yolov5s` detector. Segmentation requires a
+separate `yolov5s-seg` export and prototype-mask decoding.
 
 ## Lambda Does Not Run
 
@@ -55,14 +55,13 @@ command.
 Open the subscription confirmation email and confirm it. Check spam filtering,
 the topic ARN in CodeBuild, and `sns:Publish` on the build role.
 
-## Heroku Release Fails
+## Hugging Face Space Deployment Fails
 
-- Ensure the app uses the `container` stack.
-- Build an `x86_64` image, not ARM64.
-- Confirm `HEROKU_APP_NAME` and the API key.
-- Confirm the process listens on `$PORT`.
-- Run `heroku logs --tail --app <name>`.
-- Keep the image small enough to start within the dyno boot limit.
+- Confirm `HF_SPACE_ID` uses `username/space-name`.
+- Confirm `HF_TOKEN` is a write-capable token supplied from Secrets Manager.
+- Confirm the Space SDK is Docker and `app_port` is `8000`.
+- Review the Space build and container logs.
+- Remember that free Spaces sleep when unused and can have a cold start.
 
 ## Upload Script Has No Credentials
 

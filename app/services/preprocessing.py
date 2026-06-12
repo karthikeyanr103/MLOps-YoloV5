@@ -1,8 +1,9 @@
-"""Image validation and tensor preparation utilities."""
+"""Image validation and YOLOv5 tensor preparation utilities."""
 
 from __future__ import annotations
 
 from io import BytesIO
+from typing import NamedTuple
 
 import numpy as np
 from fastapi import HTTPException, UploadFile
@@ -10,6 +11,16 @@ from PIL import Image, UnidentifiedImageError
 
 ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp"}
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+YOLO_IMAGE_SIZE = 640
+
+
+class LetterboxResult(NamedTuple):
+    """Tensor and geometry required to map YOLOv5 boxes to the source image."""
+
+    tensor: np.ndarray
+    scale: float
+    pad_x: float
+    pad_y: float
 
 
 async def read_uploaded_image(file: UploadFile) -> Image.Image:
@@ -35,8 +46,29 @@ async def read_uploaded_image(file: UploadFile) -> Image.Image:
     return image.convert("RGB")
 
 
-def image_to_tensor(image: Image.Image, size: tuple[int, int] = (640, 640)) -> np.ndarray:
-    """Convert a PIL image to a normalized NCHW float32 tensor."""
-    resized = image.resize(size, Image.Resampling.BILINEAR)
-    array = np.asarray(resized, dtype=np.float32) / 255.0
-    return np.transpose(array, (2, 0, 1))[None, ...]
+def prepare_yolov5_input(
+    image: Image.Image,
+    size: int = YOLO_IMAGE_SIZE,
+) -> LetterboxResult:
+    """Resize with aspect ratio preserved and create a normalized NCHW tensor."""
+    scale = min(size / image.width, size / image.height)
+    resized_width = max(1, round(image.width * scale))
+    resized_height = max(1, round(image.height * scale))
+    resized = image.resize(
+        (resized_width, resized_height),
+        Image.Resampling.BILINEAR,
+    )
+
+    pad_x = (size - resized_width) / 2
+    pad_y = (size - resized_height) / 2
+    canvas = Image.new("RGB", (size, size), color=(114, 114, 114))
+    canvas.paste(resized, (round(pad_x), round(pad_y)))
+
+    array = np.asarray(canvas, dtype=np.float32) / 255.0
+    tensor = np.transpose(array, (2, 0, 1))[None, ...]
+    return LetterboxResult(
+        tensor=np.ascontiguousarray(tensor),
+        scale=scale,
+        pad_x=pad_x,
+        pad_y=pad_y,
+    )

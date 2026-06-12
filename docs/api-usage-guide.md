@@ -36,29 +36,29 @@ print(response.json())
 Classification:
 
 ```json
-{"task":"classification","model_status":"placeholder","predictions":[{"label":"example_class","confidence":0.94}]}
+{"task":"classification","model_status":"yolov5s","prediction_type":"detected_scene_objects","predictions":[{"label":"person","confidence":0.94}]}
 ```
 
 Counting:
 
 ```json
-{"task":"counting","model_status":"placeholder","total_count":3,"counts_by_class":{"person":2,"vehicle":1}}
+{"task":"counting","model_status":"yolov5s","total_count":3,"counts_by_class":{"person":2,"car":1}}
 ```
 
 Segmentation:
 
 ```json
-{"task":"segmentation","model_status":"placeholder","segments":[{"label":"foreground","confidence":0.91,"coverage_percent":36.7}]}
+{"task":"segmentation","model_status":"not_configured","message":"YOLOv5s is a detector and cannot return masks."}
 ```
 
 Object detection:
 
 ```json
-{"task":"object_detection","model_status":"placeholder","detections":[{"label":"example_object","confidence":0.92,"box":{"x_min":96,"y_min":86,"x_max":461,"y_max":389}}]}
+{"task":"object_detection","model_status":"yolov5s","detections":[{"label":"person","class_id":0,"confidence":0.92,"box":{"x_min":96,"y_min":86,"x_max":461,"y_max":389}}]}
 ```
 
-`model_status` makes it clear whether a response came from an installed ONNX
-session or the demonstration fallback.
+`model_status` makes it clear whether YOLOv5s is installed and whether a task
+has a compatible model.
 
 ## Errors
 

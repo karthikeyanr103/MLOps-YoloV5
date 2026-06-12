@@ -8,9 +8,11 @@ repeat, audit, or explain to stakeholders.
 
 ## The Solution
 
-MLOps-YoloV5 treats a model upload as a deployment event. AWS services validate
-and package the new model, Docker provides a reproducible runtime, and FastAPI
-serves four computer vision use cases through one application.
+MLOps-YoloV5 treats a model upload as a deployment event. The first deployment
+uses official pretrained YOLOv5s, so no training is required. AWS services
+export and package the model, Docker provides a reproducible runtime, and
+FastAPI serves detection-based computer vision use cases through one
+application.
 
 ## Audience
 
@@ -18,15 +20,17 @@ serves four computer vision use cases through one application.
   software engineering skills applied to a business workflow.
 - **Technical interviewers:** an inspectable design with separate route,
   inference, infrastructure, and deployment responsibilities.
-- **Engineers:** a starter repository that can be connected to a real model by
-  adding ONNX decoding and provisioned cloud resources.
+- **Engineers:** a working YOLOv5 ONNX serving pattern that can later accept a
+  custom checkpoint through the same S3 event.
 
 ## Portfolio Talking Points
 
 - The pipeline is event-driven instead of being manually started.
 - Model artifacts and application images are versioned independently.
-- The application works in placeholder mode for demonstrations and documents
-  exactly where production model logic belongs.
+- Official YOLOv5s weights provide real COCO detection without committing a
+  large model binary to Git.
+- Detection output is reused for object counting and detected-scene labels.
+- Segmentation is clearly marked inactive until `yolov5s-seg` is integrated.
 - Credentials are externalized, IAM roles are preferred, and large model
   artifacts are excluded from Git.
 - Failure notifications and immutable image tags make releases observable and
@@ -35,5 +39,5 @@ serves four computer vision use cases through one application.
 ## Definition of Done
 
 A deployment is complete when CodeBuild has validated the model, pushed a
-versioned image to ECR, optionally released it to Heroku, and SNS has delivered
-the final status. Application readiness is verified with `GET /health`.
+versioned image to ECR, published the Docker Space bundle to Hugging Face, and
+SNS has delivered the final status. Readiness is verified with `GET /health`.

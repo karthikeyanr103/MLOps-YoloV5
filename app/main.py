@@ -41,5 +41,5 @@ async def home(request: Request) -> HTMLResponse:
 
 @app.get("/health", tags=["Operations"])
 async def health() -> dict:
-    """Provide a lightweight readiness endpoint for Docker and Heroku."""
+    """Provide a lightweight readiness endpoint for Docker deployments."""
     return {"status": "healthy", "models": model_status()}

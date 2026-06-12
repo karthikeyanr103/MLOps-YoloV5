@@ -1,10 +1,8 @@
 # Classification Model
 
-Place the exported artifact at `models/classification/model.onnx`.
-
-Expected default input: `float32 [batch, 3, 640, 640]`, RGB, values in
-`[0, 1]`. Update preprocessing for the training model's image size and
-normalization. Add a versioned class label file and implement softmax/top-k
-decoding in `app/services/postprocessing.py`.
+The default classification endpoint summarizes the unique COCO object labels
+detected by the shared `models/object_detection/yolov5s.onnx` model. It is
+therefore scene-object classification, not whole-image ImageNet
+classification. A dedicated `yolov5s-cls` model can be added later if required.
 
 Model binaries are intentionally ignored by Git.

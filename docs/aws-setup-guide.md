@@ -35,15 +35,16 @@ Connect the project to this GitHub repository or upload a source archive.
 Set these environment variables:
 
 ```text
-ECR_REPOSITORY_URI
-SNS_TOPIC_ARN
-MODEL_TASK
-MODEL_OUTPUT_PATH
-ENABLE_HEROKU_DEPLOY
+ECR_REPOSITORY_URI=<your ECR repository URI>
+SNS_TOPIC_ARN=<your SNS topic ARN>
+MODEL_OUTPUT_PATH=models/object_detection/yolov5s.onnx
+YOLOV5_REF=v7.0
+ENABLE_HF_DEPLOY=true
+HF_SPACE_ID=<your-hf-user>/mlops-yolov5
 ```
 
-Store `HEROKU_API_KEY` as a Secrets Manager-backed variable when Heroku release
-is enabled. Do not use a plaintext build variable for a real credential.
+Store `HF_TOKEN` as a Secrets Manager-backed variable. Do not use a plaintext
+build variable for a real credential.
 
 ## 3. Create Lambda
 
@@ -69,12 +70,14 @@ leave suffix filtering to the Lambda code.
 Grant S3 permission to invoke the function and avoid configuring a trigger on a
 bucket that the same function writes into, which can create recursive events.
 
-## 5. Upload and Observe
+## 5. Bootstrap YOLOv5s and Observe
 
-```bash
-python scripts/upload_model_to_s3.py path/to/best.onnx \
-  --bucket YOUR_UNIQUE_BUCKET \
-  --region us-east-1
+No trained model is required. From Windows PowerShell:
+
+```powershell
+.\scripts\bootstrap_yolov5_to_s3.ps1 `
+  -Bucket "YOUR_UNIQUE_BUCKET" `
+  -Region "us-east-1"
 ```
 
 Then inspect:
@@ -83,7 +86,10 @@ Then inspect:
 2. CodeBuild phase logs for conversion and Docker output.
 3. ECR for the immutable image tag.
 4. SNS email for the final status.
-5. Heroku logs when automated release is enabled.
+5. Hugging Face Space build logs.
+
+The script downloads official YOLOv5s v7.0 weights to the temporary directory,
+uploads them as `models/yolov5s.pt`, and removes the local temporary file.
 
 ## Official References
 

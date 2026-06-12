@@ -16,7 +16,7 @@ NODES = [
     ("IMAGE", "DOCKER", "#287fbe"),
     ("REGISTRY", "ECR", "#8856a7"),
     ("STATUS", "SNS", "#bf4778"),
-    ("DEPLOY", "HEROKU", "#7053a0"),
+    ("DEPLOY", "HF SPACE", "#7053a0"),
     ("INFERENCE", "FASTAPI", "#168f79"),
 ]
 
@@ -38,7 +38,7 @@ def draw_frame(active_index: int | None = None) -> Image.Image:
     draw.text((70, 40), "MLOps-YoloV5", fill="white", font=font(48, bold=True))
     draw.text(
         (70, 99),
-        "EVENT-DRIVEN MODEL DELIVERY  |  AWS + ONNX + DOCKER + HEROKU",
+        "EVENT-DRIVEN MODEL DELIVERY  |  AWS + ONNX + DOCKER + HUGGING FACE",
         fill="#e8b09e",
         font=font(19, bold=True),
     )

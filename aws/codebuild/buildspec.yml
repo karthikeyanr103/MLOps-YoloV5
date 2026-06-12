@@ -3,8 +3,9 @@ version: 0.2
 env:
   shell: bash
   variables:
-    MODEL_OUTPUT_PATH: "models/object_detection/model.onnx"
-    ENABLE_HEROKU_DEPLOY: "false"
+    MODEL_OUTPUT_PATH: "models/object_detection/yolov5s.onnx"
+    YOLOV5_REF: "v7.0"
+    ENABLE_HF_DEPLOY: "false"
 
 phases:
   install:
@@ -21,44 +22,55 @@ phases:
       - ECR_REGISTRY="$ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com"
       - IMAGE_TAG="build-${CODEBUILD_BUILD_NUMBER}-$(date +%Y%m%d%H%M%S)"
       - SOURCE_MODEL_NAME="$(basename "$SOURCE_MODEL_KEY")"
+      - SOURCE_MODEL_PATH=".build/$SOURCE_MODEL_NAME"
       - mkdir -p "$(dirname "$MODEL_OUTPUT_PATH")" .build
-      - aws s3 cp "s3://$SOURCE_MODEL_BUCKET/$SOURCE_MODEL_KEY" ".build/$SOURCE_MODEL_NAME"
+      - |
+        if [[ -n "${SOURCE_MODEL_VERSION:-}" ]]; then
+          aws s3api get-object \
+            --bucket "$SOURCE_MODEL_BUCKET" \
+            --key "$SOURCE_MODEL_KEY" \
+            --version-id "$SOURCE_MODEL_VERSION" \
+            "$SOURCE_MODEL_PATH"
+        else
+          aws s3 cp \
+            "s3://$SOURCE_MODEL_BUCKET/$SOURCE_MODEL_KEY" \
+            "$SOURCE_MODEL_PATH"
+        fi
       - aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "$ECR_REGISTRY"
       - aws sns publish --topic-arn "$SNS_TOPIC_ARN" --subject "MLOps-YoloV5 build started" --message "CodeBuild $CODEBUILD_BUILD_ID is processing s3://$SOURCE_MODEL_BUCKET/$SOURCE_MODEL_KEY"
   build:
     commands:
       - |
         if [[ "$SOURCE_MODEL_NAME" == *.onnx ]]; then
-          cp ".build/$SOURCE_MODEL_NAME" "$MODEL_OUTPUT_PATH"
+          cp "$SOURCE_MODEL_PATH" "$MODEL_OUTPUT_PATH"
         else
-          python scripts/convert_to_onnx.py \
-            --input ".build/$SOURCE_MODEL_NAME" \
-            --output "$MODEL_OUTPUT_PATH" \
-            --task "${MODEL_TASK:-object_detection}"
+          git clone --branch "$YOLOV5_REF" --depth 1 \
+            https://github.com/ultralytics/yolov5.git .build/yolov5
+          pip install -r .build/yolov5/requirements.txt
+          python .build/yolov5/export.py \
+            --weights "$SOURCE_MODEL_PATH" \
+            --include onnx \
+            --opset 17 \
+            --imgsz 640 \
+            --device cpu
+          cp "${SOURCE_MODEL_PATH%.*}.onnx" "$MODEL_OUTPUT_PATH"
         fi
       - docker build --platform linux/amd64 -f docker/Dockerfile -t "$ECR_REPOSITORY_URI:$IMAGE_TAG" .
       - docker push "$ECR_REPOSITORY_URI:$IMAGE_TAG"
       - printf '{"image":"%s","model":"s3://%s/%s","build":"%s"}' "$ECR_REPOSITORY_URI:$IMAGE_TAG" "$SOURCE_MODEL_BUCKET" "$SOURCE_MODEL_KEY" "$CODEBUILD_BUILD_ID" > image-detail.json
       - |
-        if [[ "$ENABLE_HEROKU_DEPLOY" == "true" ]]; then
-          test -n "$HEROKU_API_KEY"
-          test -n "$HEROKU_APP_NAME"
-          echo "$HEROKU_API_KEY" | docker login --username=_ --password-stdin registry.heroku.com
-          docker tag "$ECR_REPOSITORY_URI:$IMAGE_TAG" "registry.heroku.com/$HEROKU_APP_NAME/web"
-          docker push "registry.heroku.com/$HEROKU_APP_NAME/web"
-          HEROKU_IMAGE_ID="$(docker inspect "registry.heroku.com/$HEROKU_APP_NAME/web" --format={{.Id}})"
-          curl --fail --silent --show-error \
-            -X PATCH "https://api.heroku.com/apps/$HEROKU_APP_NAME/formation" \
-            -H "Authorization: Bearer $HEROKU_API_KEY" \
-            -H "Content-Type: application/json" \
-            -H "Accept: application/vnd.heroku+json; version=3.docker-releases" \
-            -d '{"updates":[{"type":"web","docker_image":"'"$HEROKU_IMAGE_ID"'"}]}'
+        if [[ "$ENABLE_HF_DEPLOY" == "true" ]]; then
+          test -n "$HF_TOKEN"
+          test -n "$HF_SPACE_ID"
+          python scripts/deploy_to_huggingface.py \
+            --repo-id "$HF_SPACE_ID" \
+            --model "$MODEL_OUTPUT_PATH"
         fi
   post_build:
     commands:
       - |
         if [[ "$CODEBUILD_BUILD_SUCCEEDING" == "1" ]]; then
-          aws sns publish --topic-arn "$SNS_TOPIC_ARN" --subject "MLOps-YoloV5 deployment succeeded" --message "Published $ECR_REPOSITORY_URI:$IMAGE_TAG. Heroku enabled: $ENABLE_HEROKU_DEPLOY"
+          aws sns publish --topic-arn "$SNS_TOPIC_ARN" --subject "MLOps-YoloV5 deployment succeeded" --message "Published $ECR_REPOSITORY_URI:$IMAGE_TAG. Hugging Face enabled: $ENABLE_HF_DEPLOY"
         else
           aws sns publish --topic-arn "$SNS_TOPIC_ARN" --subject "MLOps-YoloV5 deployment failed" --message "CodeBuild execution $CODEBUILD_BUILD_ID failed. Review CloudWatch build logs."
         fi

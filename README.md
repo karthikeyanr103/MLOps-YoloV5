@@ -7,14 +7,13 @@
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-An end-to-end computer vision deployment portfolio demonstrating how a trained
-model moves from an S3 upload to an automated, containerized web inference
-application.
+An end-to-end computer vision deployment portfolio demonstrating how official
+pretrained YOLOv5s moves from an S3 upload to an automated, containerized web
+inference application.
 
-The repository is deliberately runnable without large model files. In
-**placeholder mode**, every endpoint returns a realistic sample response. Add a
-compatible `model.onnx` file to a task folder and the same API automatically
-uses ONNX Runtime.
+No training or custom model is required. The bootstrap script downloads the
+official YOLOv5s v7.0 checkpoint, uploads it to S3, and lets CodeBuild export it
+to ONNX. Model binaries remain outside Git.
 
 ![MLOps-YoloV5 workflow](architecture/workflow-diagram.png)
 
@@ -23,13 +22,14 @@ uses ONNX Runtime.
 Manual model releases are slow, inconsistent, and difficult to audit. This
 project turns a model artifact into a repeatable deployment:
 
-1. A data scientist uploads `.pt`, `.pth`, or `.onnx` to Amazon S3.
+1. The bootstrap script uploads official pretrained `yolov5s.pt` to Amazon S3.
 2. S3 invokes Lambda through an object-created event.
 3. Lambda starts AWS CodeBuild with the exact bucket, key, and version.
 4. CodeBuild downloads and converts the artifact to ONNX when required.
 5. A versioned Docker image is built and pushed to Amazon ECR.
 6. Amazon SNS reports build and deployment status.
-7. The same image can be released to Heroku's Container Runtime.
+7. CodeBuild publishes the application and ONNX model to a free Hugging Face
+   Docker Space.
 8. Users access classification, counting, segmentation, and detection through
    a browser or REST API.
 
@@ -45,8 +45,8 @@ flowchart LR
     ONNX --> Docker[Docker build]
     Docker --> ECR[(Amazon ECR)]
     CB -->|Status| SNS[Amazon SNS]
-    ECR -->|Release image| Heroku[Heroku]
-    Heroku --> API[FastAPI + ONNX Runtime]
+    CB -->|Publish Space bundle| HF[Hugging Face Space]
+    HF --> API[FastAPI + ONNX Runtime]
     API --> Tasks[4 computer vision tasks]
 ```
 
@@ -57,10 +57,10 @@ See the [animated workflow](architecture/animated-workflow.gif) and the
 
 | Task | Endpoint | Example result |
 | --- | --- | --- |
-| Classification | `POST /api/v1/classification/predict` | Ranked labels and confidence |
+| Scene-object classification | `POST /api/v1/classification/predict` | Ranked detected COCO labels |
 | Object counting | `POST /api/v1/counting/predict` | Total and per-class counts |
-| Segmentation | `POST /api/v1/segmentation/predict` | Segment confidence and coverage |
-| Object detection | `POST /api/v1/object-detection/predict` | Labels, confidence, and boxes |
+| Segmentation | `POST /api/v1/segmentation/predict` | Reserved for `yolov5s-seg` |
+| Object detection | `POST /api/v1/object-detection/predict` | COCO labels, confidence, and boxes |
 
 Interactive OpenAPI documentation is available at `/docs`; readiness is
 reported by `GET /health`.
@@ -105,21 +105,20 @@ docker compose -f docker/docker-compose.yml up --build
 
 The image runs as a non-root user and reads models from `/app/models`.
 
-## Add a Real Model
+## Default Model
 
-Place an ONNX artifact at one of these paths:
+The default model is official pretrained **YOLOv5s v7.0**, trained on the 80
+COCO classes. CodeBuild creates:
 
 ```text
-models/classification/model.onnx
-models/counting/model.onnx
-models/segmentation/model.onnx
-models/object_detection/model.onnx
+models/object_detection/yolov5s.onnx
 ```
 
-The included generic adapter assumes an NCHW float input and returns an output
-preview. Production label, box, or mask decoding belongs in
-`app/services/postprocessing.py`. See the
-[model conversion guide](docs/model-conversion-guide.md).
+That one detector powers object detection, counting, and detected-scene label
+classification. The service includes letterbox preprocessing, confidence
+filtering, class-aware NMS, COCO labels, and original-image coordinate scaling.
+Segmentation honestly remains inactive until the related `yolov5s-seg` model
+and mask decoder are installed.
 
 ## AWS Deployment
 
@@ -128,29 +127,31 @@ preview. Production label, box, or mask decoding belongs in
 2. Configure CodeBuild to use `aws/codebuild/buildspec.yml` and privileged
    Docker mode.
 3. Set the environment variables shown in `.env.example`.
-4. Upload a model:
+4. Bootstrap the official pretrained model:
 
-```bash
-python scripts/upload_model_to_s3.py best.pt \
-  --bucket YOUR_MODEL_BUCKET \
-  --region us-east-1
+```powershell
+.\scripts\bootstrap_yolov5_to_s3.ps1 `
+  -Bucket "YOUR_MODEL_BUCKET" `
+  -Region "us-east-1"
 ```
 
 No AWS access keys belong in this repository. Use an AWS profile locally and
 IAM roles in Lambda and CodeBuild.
 
-## Heroku Deployment
+## Hugging Face Deployment
 
-Create a Cedar-generation app using the container stack, set
-`HEROKU_APP_NAME` and `HEROKU_API_KEY` securely, then run:
+Create a free Docker Space and a fine-grained write token. Store the token in
+AWS Secrets Manager, then configure CodeBuild:
 
-```bash
-bash scripts/deploy_to_heroku.sh
+```text
+ENABLE_HF_DEPLOY=true
+HF_SPACE_ID=YOUR_HF_USERNAME/mlops-yolov5
+HF_TOKEN=<Secrets Manager variable>
 ```
 
-For automated release from CodeBuild, set `ENABLE_HEROKU_DEPLOY=true` and store
-the API key as a secret environment variable. Full instructions are in the
-[Heroku deployment guide](docs/heroku-deployment-guide.md).
+Each S3 model upload now updates ECR and publishes a new Hugging Face Space
+commit. Full instructions are in the
+[Hugging Face deployment guide](docs/huggingface-deployment-guide.md).
 
 ## Repository Map
 
@@ -181,24 +182,24 @@ in [videos/README.md](videos/README.md).
 - Multi-task computer vision service organization
 - IAM least-privilege planning and secret hygiene
 - Deployment notifications with SNS
-- Heroku container delivery and cloud-ready `$PORT` handling
+- Automated Hugging Face Docker Space delivery
 - Testing, documentation, troubleshooting, and maintainable project structure
 
 ## Future Improvements
 
-- Add model-specific YOLOv5/YOLOv5-seg decoding and visual overlays.
+- Add `yolov5s-seg` mask decoding and visual overlays.
 - Provision AWS resources with Terraform or AWS CDK.
 - Add ECR vulnerability gates, signed images, and SBOM generation.
 - Add integration tests with LocalStack and ephemeral containers.
 - Record deployment metadata in DynamoDB for rollback and audit history.
 - Add CloudWatch dashboards, latency metrics, and drift monitoring.
-- Move Heroku credentials to AWS Secrets Manager during builds.
+- Add signed deployment provenance between CodeBuild, ECR, and the Space.
 
 ## Documentation
 
 - [Project overview](docs/project-overview.md)
 - [AWS setup guide](docs/aws-setup-guide.md)
-- [Heroku deployment guide](docs/heroku-deployment-guide.md)
+- [Hugging Face deployment guide](docs/huggingface-deployment-guide.md)
 - [Model conversion guide](docs/model-conversion-guide.md)
 - [API usage guide](docs/api-usage-guide.md)
 - [Troubleshooting](docs/troubleshooting.md)
@@ -208,7 +209,7 @@ in [videos/README.md](videos/README.md).
 This is a portfolio reference implementation, not a pre-approved production
 platform. Restrict IAM resources to your account, encrypt and version the S3
 bucket, scan ECR images, apply retention policies, and configure spending
-alerts. Delete unused Heroku dynos and AWS resources to stop charges.
+alerts. Pause unused Spaces and delete unused AWS resources to stop charges.
 
 ## License
 

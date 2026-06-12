@@ -30,18 +30,19 @@ def test_health_reports_all_tasks() -> None:
 
 
 def test_all_prediction_routes_accept_images() -> None:
-    for route in (
-        "classification",
-        "counting",
-        "segmentation",
-        "object-detection",
-    ):
+    expectations = {
+        "classification": "not_installed",
+        "counting": "not_installed",
+        "segmentation": "not_configured",
+        "object-detection": "not_installed",
+    }
+    for route, expected_status in expectations.items():
         response = client.post(
             f"/api/v1/{route}/predict",
             files={"file": ("sample.png", image_bytes(), "image/png")},
         )
         assert response.status_code == 200
-        assert response.json()["model_status"] == "placeholder"
+        assert response.json()["model_status"] == expected_status
 
 
 def test_rejects_unsupported_upload_type() -> None:

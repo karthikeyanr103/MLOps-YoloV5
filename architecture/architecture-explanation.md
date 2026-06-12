@@ -23,14 +23,15 @@ stable interface even as model files change.
    by the ONNX checker.
 5. **Container build:** The model and FastAPI source are packaged into an
    immutable Docker image. The image uses ONNX Runtime for portable CPU
-   inference and reads Heroku's dynamic `$PORT`.
+   inference and listens on the Docker Space port declared in its metadata.
 6. **Image registry:** CodeBuild authenticates with ECR and pushes a tag that
    includes the build number and timestamp. This makes releases traceable and
    supports rollback to an earlier image.
 7. **Notification:** SNS publishes start, success, or failure messages. Email,
    SMS, chat integrations, or operations systems can subscribe to the topic.
-8. **Heroku release:** When enabled, CodeBuild tags the built image for the
-   Heroku registry, pushes it, and creates a `web` process release.
+8. **Hugging Face release:** When enabled, CodeBuild uploads a minimal Docker
+   Space bundle containing the application and generated ONNX model. The Hub
+   commit automatically rebuilds the public Space.
 9. **Inference:** Users upload an image through the web interface or REST API.
    FastAPI validates it, preprocessing creates an NCHW tensor, ONNX Runtime runs
    inference, and task-aware postprocessing formats the response.
@@ -45,20 +46,20 @@ stable interface even as model files change.
 | ONNX | Portable model format | Training and serving frameworks are decoupled |
 | ECR | Container image registry | Versioning, scanning, and AWS IAM integration |
 | SNS | Deployment status fan-out | Operations visibility without tight coupling |
-| Heroku | Public application runtime | Simple portfolio hosting and HTTPS endpoint |
+| Hugging Face | Free public Docker Space | ML-focused hosting and HTTPS endpoint |
 | FastAPI | HTTP and browser interface | Validation, async uploads, automatic docs |
 
 ## Failure and Recovery
 
 Build failures stop before release and produce an SNS notification. Existing
-Heroku releases remain available because a failed build never replaces the
-running image. Operators can inspect CodeBuild logs, fix the model or source,
-and upload a new artifact. Rollback is performed by releasing a previously
-known ECR/Heroku image rather than modifying the model in a running container.
+the current Space commit remains available because a failed build does not
+publish a replacement. Operators can inspect CodeBuild logs, fix the model or
+source, and upload a new artifact. ECR image tags and Space commits preserve
+deployment history.
 
 ## Security Boundaries
 
 S3 remains private, Lambda can only start the named project, and CodeBuild
 receives only the S3, ECR, logging, and SNS permissions it needs. AWS workloads
-use IAM roles. Heroku API credentials must be stored as secret build variables
-or in AWS Secrets Manager and must never be committed.
+use IAM roles. The Hugging Face write token must be stored in AWS Secrets
+Manager and must never be committed.
