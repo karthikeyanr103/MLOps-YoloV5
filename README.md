@@ -1,222 +1,182 @@
 # MLOps-YoloV5
 
-[![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![ONNX](https://img.shields.io/badge/ONNX-Runtime-005CED?logo=onnx&logoColor=white)](https://onnxruntime.ai/)
-[![AWS](https://img.shields.io/badge/AWS-Event_Driven-FF9900?logo=amazonwebservices&logoColor=white)](https://aws.amazon.com/)
-[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+An end-to-end MLOps project that automatically converts and deploys YOLOv5
+models for web-based computer vision inference.
 
-An end-to-end computer vision deployment portfolio demonstrating how official
-pretrained YOLOv5s moves from an S3 upload to an automated, containerized web
-inference application.
+[![Live Demo](https://img.shields.io/badge/Live_Demo-Hugging_Face-FFD21E?logo=huggingface&logoColor=black)](https://iamkarthik-mlops-yolov5.hf.space/)
+[![API Docs](https://img.shields.io/badge/API-Swagger_UI-85EA2D?logo=swagger&logoColor=black)](https://iamkarthik-mlops-yolov5.hf.space/docs)
+[![License](https://img.shields.io/badge/License-MIT-2ea44f)](LICENSE)
 
-No training or custom model is required. The bootstrap script downloads the
-official YOLOv5s v7.0 checkpoint, uploads it to S3, and lets CodeBuild export it
-to ONNX. Model binaries remain outside Git.
+## About This Project
 
-![MLOps-YoloV5 workflow](architecture/workflow-diagram.png)
+I built this repository to understand what happens after a machine learning
+model is trained.
 
-## Business Value
+Instead of manually copying a model to a server, this project treats a model
+upload as a deployment event. Uploading a YOLOv5 model to Amazon S3 starts an
+automated AWS pipeline that converts the model to ONNX, packages the inference
+application in Docker, pushes the image to Amazon ECR, and publishes the web
+application to Hugging Face Spaces.
 
-Manual model releases are slow, inconsistent, and difficult to audit. This
-project turns a model artifact into a repeatable deployment:
+The deployed application supports:
 
-1. The bootstrap script uploads official pretrained `yolov5s.pt` to Amazon S3.
-2. S3 invokes Lambda through an object-created event.
-3. Lambda starts AWS CodeBuild with the exact bucket, key, and version.
-4. CodeBuild downloads and converts the artifact to ONNX when required.
-5. A versioned Docker image is built and pushed to Amazon ECR.
-6. Amazon SNS reports build and deployment status.
-7. CodeBuild publishes the application and ONNX model to a free Hugging Face
-   Docker Space.
-8. Users access classification, counting, segmentation, and detection through
-   a browser or REST API.
+- Object detection
+- Object counting
+- Scene classification using detected object labels
+- Instance segmentation
+
+Official pretrained YOLOv5s and YOLOv5s-seg models are used, so the project can
+be demonstrated without training a custom model or committing large model
+files to GitHub.
 
 ## Architecture
 
+![MLOps-YoloV5 architecture](architecture/workflow-diagram.png)
+
 ```mermaid
 flowchart LR
-    User[Model owner] -->|Upload model| S3[(Amazon S3)]
-    S3 -->|ObjectCreated| Lambda[AWS Lambda]
-    Lambda -->|StartBuild| CB[AWS CodeBuild]
-    CB -->|Download| S3
-    CB --> ONNX[ONNX conversion]
-    ONNX --> Docker[Docker build]
-    Docker --> ECR[(Amazon ECR)]
-    CB -->|Status| SNS[Amazon SNS]
-    CB -->|Publish Space bundle| HF[Hugging Face Space]
-    HF --> API[FastAPI + ONNX Runtime]
-    API --> Tasks[4 computer vision tasks]
+    GitHub[GitHub Repository] --> CodeBuild[AWS CodeBuild]
+    User[Model Upload] --> S3[Amazon S3]
+    S3 -->|Upload event| Lambda[AWS Lambda]
+    Lambda -->|Start build| CodeBuild
+    CodeBuild -->|Download model| S3
+    CodeBuild --> ONNX[Convert to ONNX]
+    ONNX --> Docker[Build Docker Image]
+    Docker --> ECR[Amazon ECR]
+    CodeBuild --> SNS[Amazon SNS]
+    CodeBuild --> HF[Hugging Face Space]
+    HF --> App[FastAPI + ONNX Runtime]
 ```
 
-See the [animated workflow](architecture/animated-workflow.gif) and the
+### How the pipeline works
+
+1. A `.pt`, `.pth`, or `.onnx` model is uploaded to Amazon S3.
+2. The S3 upload event invokes AWS Lambda.
+3. Lambda starts the CodeBuild project and passes the model location.
+4. CodeBuild downloads the exact model artifact from S3.
+5. PyTorch weights are exported to ONNX when required.
+6. The build validates both detection and segmentation inference.
+7. A Docker image is created and pushed to Amazon ECR.
+8. Amazon SNS sends the deployment result.
+9. The FastAPI application and ONNX models are published to a Hugging Face
+   Docker Space.
+
+More detail is available in the
 [architecture explanation](architecture/architecture-explanation.md).
 
-## Supported Tasks
+## What I Built
 
-| Task | Endpoint | Example result |
-| --- | --- | --- |
-| Scene-object classification | `POST /api/v1/classification/predict` | Ranked detected COCO labels |
-| Object counting | `POST /api/v1/counting/predict` | Total and per-class counts |
-| Segmentation | `POST /api/v1/segmentation/predict` | YOLOv5s-seg masks, labels, coverage, and boxes |
-| Object detection | `POST /api/v1/object-detection/predict` | COCO labels, confidence, and boxes |
+- An event-driven deployment trigger using S3 and Lambda
+- A CodeBuild pipeline for model conversion, validation, and deployment
+- PyTorch-to-ONNX conversion for YOLOv5
+- A Docker image for portable CPU inference
+- FastAPI endpoints with image upload validation
+- ONNX Runtime inference with lazy model loading
+- YOLOv5 preprocessing, confidence filtering, and class-aware NMS
+- COCO class-label validation using ONNX model metadata
+- YOLOv5 segmentation mask decoding and transparent overlays
+- A browser interface that compares the uploaded image with its prediction
+- Separate APIs for detection, counting, classification, and segmentation
+- ECR image publishing, SNS notifications, and Hugging Face deployment
+- A faster UI-only deployment path for changes that do not replace the model
 
-Interactive OpenAPI documentation is available at `/docs`; readiness is
-reported by `GET /health`.
+## Tools Used
 
-## Quick Start
+<p align="left">
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/python/python-original.svg" width="46" height="46" alt="Python" title="Python"/>
+  &nbsp;
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/fastapi/fastapi-original.svg" width="46" height="46" alt="FastAPI" title="FastAPI"/>
+  &nbsp;
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/pytorch/pytorch-original.svg" width="46" height="46" alt="PyTorch" title="PyTorch"/>
+  &nbsp;
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/numpy/numpy-original.svg" width="46" height="46" alt="NumPy" title="NumPy"/>
+  &nbsp;
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/docker/docker-original.svg" width="46" height="46" alt="Docker" title="Docker"/>
+  &nbsp;
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/amazonwebservices/amazonwebservices-original-wordmark.svg" width="58" height="46" alt="AWS" title="AWS"/>
+  &nbsp;
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/github/github-original.svg" width="46" height="46" alt="GitHub" title="GitHub"/>
+  &nbsp;
+  <img src="https://huggingface.co/front/assets/huggingface_logo-noborder.svg" width="46" height="46" alt="Hugging Face" title="Hugging Face"/>
+</p>
+
+| Area | Technology |
+| --- | --- |
+| Model | YOLOv5s, YOLOv5s-seg, PyTorch |
+| Inference | ONNX, ONNX Runtime, NumPy, Pillow |
+| API and UI | FastAPI, Jinja2, HTML, CSS, JavaScript |
+| AWS pipeline | S3, Lambda, CodeBuild, ECR, SNS, IAM |
+| Deployment | Docker, GitHub, Hugging Face Spaces |
+| Testing | Pytest, FastAPI TestClient, Ruff |
+
+## Inference API
+
+| Task | Endpoint |
+| --- | --- |
+| Object detection | `POST /api/v1/object-detection/predict` |
+| Object counting | `POST /api/v1/counting/predict` |
+| Classification | `POST /api/v1/classification/predict` |
+| Segmentation | `POST /api/v1/segmentation/predict` |
+
+The web interface includes a sample image for every task, making the live demo
+usable without downloading test data.
+
+## Demo
+
+Try the application on
+[Hugging Face Spaces](https://iamkarthik-mlops-yolov5.hf.space/).
+
+### Prediction Video
+
+I am preparing a short demo video showing:
+
+- Selecting each computer vision task
+- Running predictions with the included sample images
+- Uploading a custom image
+- Comparing the source image with the model output
+- Viewing detection labels, counts, confidence scores, and segmentation masks
+
+The video will be added here after recording:
+
+<!-- Replace this section with the final video or GIF. -->
+
+> Demo video coming soon.
+
+## Repository Structure
+
+```text
+app/            FastAPI application, UI, routes, and inference services
+aws/            Lambda, CodeBuild, IAM, and SNS configuration
+docker/         Container and Docker Compose files
+scripts/        Model upload, conversion, inference, and deployment scripts
+models/         Model documentation and generated ONNX locations
+architecture/   Workflow diagrams and architecture explanation
+docs/           AWS, Hugging Face, API, and troubleshooting guides
+tests/          API, UI, Lambda, metadata, and postprocessing tests
+```
+
+## Run Locally
 
 ```bash
 python -m venv .venv
-# Windows: .venv\Scripts\activate
-# macOS/Linux: source .venv/bin/activate
 python -m pip install -r requirements-dev.txt
 uvicorn app.main:app --reload
 ```
 
-Open `http://localhost:8000`, or call the API:
+Open `http://localhost:8000`.
 
-```bash
-curl -X POST "http://localhost:8000/api/v1/object-detection/predict" \
-  -H "accept: application/json" \
-  -F "file=@sample.jpg"
-```
-
-Run the automated checks with:
-
-```bash
-pytest
-ruff check app aws scripts tests
-```
-
-## Docker
-
-```bash
-docker build -f docker/Dockerfile -t mlops-yolov5:local .
-docker run --rm -p 8000:8000 -e PORT=8000 mlops-yolov5:local
-```
-
-Or:
-
-```bash
-docker compose -f docker/docker-compose.yml up --build
-```
-
-The image runs as a non-root user and reads models from `/app/models`.
-
-## Default Model
-
-The default model is official pretrained **YOLOv5s v7.0**, trained on the 80
-COCO classes. CodeBuild creates:
-
-```text
-models/object_detection/yolov5s.onnx
-```
-
-That one detector powers object detection, counting, and detected-scene label
-classification. The service includes letterbox preprocessing, confidence
-filtering, class-aware NMS, COCO labels, and original-image coordinate scaling.
-The full build also packages official YOLOv5s-seg, enabling pixel-mask
-segmentation with transparent overlays.
-
-## AWS Deployment
-
-1. Create the S3 bucket, ECR repository, SNS topic, Lambda function, and
-   CodeBuild project described in the [AWS setup guide](docs/aws-setup-guide.md).
-2. Configure CodeBuild to use `aws/codebuild/buildspec.yml` and privileged
-   Docker mode.
-3. Set the environment variables shown in `.env.example`.
-4. Bootstrap the official pretrained model:
-
-```powershell
-.\scripts\bootstrap_yolov5_to_s3.ps1 `
-  -Bucket "YOUR_MODEL_BUCKET" `
-  -Region "us-east-1"
-```
-
-No AWS access keys belong in this repository. Use an AWS profile locally and
-IAM roles in Lambda and CodeBuild.
-
-## Hugging Face Deployment
-
-Create a free Docker Space and a fine-grained write token. Store the token in
-AWS Secrets Manager, then configure CodeBuild:
-
-```text
-ENABLE_HF_DEPLOY=true
-HF_SPACE_ID=YOUR_HF_USERNAME/mlops-yolov5
-HF_TOKEN=<Secrets Manager variable>
-```
-
-Each S3 model upload now updates ECR and publishes a new Hugging Face Space
-commit. Full instructions are in the
-[Hugging Face deployment guide](docs/huggingface-deployment-guide.md).
-
-For UI and application-only changes, use the lightweight
-[`buildspec-ui.yml`](aws/codebuild/buildspec-ui.yml). It reuses the ONNX model
-already in the Space and can deploy automatically on every GitHub push. See the
-[UI-only deployment guide](docs/ui-only-deployment.md).
-
-## Repository Map
-
-| Path | Purpose |
-| --- | --- |
-| `app/` | FastAPI UI, routes, preprocessing, inference, and postprocessing |
-| `aws/` | Lambda trigger, CodeBuild buildspec, SNS, and IAM guidance |
-| `docker/` | Reproducible local and cloud container configuration |
-| `models/` | Model contracts and ignored artifact locations |
-| `scripts/` | Upload, conversion, local inference, and deployment utilities |
-| `architecture/` | Static and animated system diagrams |
-| `docs/` | Recruiter-friendly overview and technical runbooks |
-| `tests/` | API and Lambda behavior checks |
-
-## Demo Media
-
-The `sample_inputs/`, `sample_outputs/`, and `videos/` directories intentionally
-contain lightweight placeholders. Replace them with compressed, non-sensitive
-portfolio media before publishing a live demo. Suggested filenames are listed
-in [videos/README.md](videos/README.md).
-
-## Skills Demonstrated
-
-- Event-driven architecture with S3, Lambda, and CodeBuild
-- Model portability with PyTorch-to-ONNX conversion
-- Reproducible container builds and ECR image versioning
-- FastAPI design, multipart uploads, validation, and OpenAPI
-- Multi-task computer vision service organization
-- IAM least-privilege planning and secret hygiene
-- Deployment notifications with SNS
-- Automated Hugging Face Docker Space delivery
-- Testing, documentation, troubleshooting, and maintainable project structure
-
-## Future Improvements
-
-- Add GPU-backed inference and optional larger YOLOv5 model variants.
-- Provision AWS resources with Terraform or AWS CDK.
-- Add ECR vulnerability gates, signed images, and SBOM generation.
-- Add integration tests with LocalStack and ephemeral containers.
-- Record deployment metadata in DynamoDB for rollback and audit history.
-- Add CloudWatch dashboards, latency metrics, and drift monitoring.
-- Add signed deployment provenance between CodeBuild, ECR, and the Space.
+The ONNX models are generated by the deployment pipeline and are not stored in
+Git. Without them, the application still starts and reports that the models
+need to be installed.
 
 ## Documentation
 
-- [Project overview](docs/project-overview.md)
 - [AWS setup guide](docs/aws-setup-guide.md)
 - [Hugging Face deployment guide](docs/huggingface-deployment-guide.md)
-- [UI-only deployment guide](docs/ui-only-deployment.md)
 - [Model conversion guide](docs/model-conversion-guide.md)
 - [API usage guide](docs/api-usage-guide.md)
 - [Troubleshooting](docs/troubleshooting.md)
 
-## Security and Cost
-
-This is a portfolio reference implementation, not a pre-approved production
-platform. Restrict IAM resources to your account, encrypt and version the S3
-bucket, scan ECR images, apply retention policies, and configure spending
-alerts. Pause unused Spaces and delete unused AWS resources to stop charges.
-
 ## License
 
-Released under the [MIT License](LICENSE).
+This project is available under the [MIT License](LICENSE).
