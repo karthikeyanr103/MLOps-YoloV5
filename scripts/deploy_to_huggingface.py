@@ -11,6 +11,11 @@ from pathlib import Path
 from huggingface_hub import HfApi
 
 PROJECT_ROOT = Path(__file__).parents[1]
+REQUIRED_UI_FILES = {
+    "app/templates/index.html",
+    "app/static/css/style.css",
+    "app/static/js/main.js",
+}
 
 
 def copy_tree(source: Path, destination: Path) -> None:
@@ -39,6 +44,15 @@ def main() -> None:
 
     if not args.reuse_space_model and not args.model.is_file():
         raise FileNotFoundError(f"Generated ONNX model not found: {args.model}")
+    missing_ui_files = [
+        relative_path
+        for relative_path in REQUIRED_UI_FILES
+        if not (PROJECT_ROOT / relative_path).is_file()
+    ]
+    if missing_ui_files:
+        raise FileNotFoundError(
+            f"Required UI files are missing: {', '.join(sorted(missing_ui_files))}"
+        )
 
     api = HfApi(token=token)
     api.create_repo(
@@ -78,6 +92,14 @@ def main() -> None:
                 else "Deploy YOLOv5s model and application from AWS CodeBuild"
             ),
             delete_patterns=delete_patterns,
+        )
+
+    remote_files = set(api.list_repo_files(args.repo_id, repo_type="space"))
+    missing_remote_files = REQUIRED_UI_FILES - remote_files
+    if missing_remote_files:
+        raise RuntimeError(
+            "Hugging Face deployment is missing required UI files: "
+            + ", ".join(sorted(missing_remote_files))
         )
 
     print(f"Published Docker Space: https://huggingface.co/spaces/{args.repo_id}")
