@@ -50,13 +50,13 @@ permission to start only the deployment project:
         "ecr:PutImage",
         "ecr:UploadLayerPart"
       ],
-      "Resource": "arn:aws:ecr:us-east-1:107072320163:repository/mlops-yolov5"
+      "Resource": "arn:aws:ecr:us-east-1:123456789012:repository/mlops-yolov5"
     },
     {
       "Sid": "PublishDeploymentStatus",
       "Effect": "Allow",
       "Action": "sns:Publish",
-      "Resource": "arn:aws:sns:us-east-1:107072320163:mlops-yolov5-deployments"
+      "Resource": "arn:aws:sns:us-east-1:123456789012:mlops-yolov5-deployments"
     },
     {
       "Sid": "WriteBuildLogs",
@@ -66,7 +66,7 @@ permission to start only the deployment project:
         "logs:CreateLogStream",
         "logs:PutLogEvents"
       ],
-      "Resource": "arn:aws:logs:us-east-1:107072320163:log-group:/aws/codebuild/mlops-yolov5-deploy:*"
+      "Resource": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/codebuild/mlops-yolov5-deploy:*"
     }
   ]
 }
