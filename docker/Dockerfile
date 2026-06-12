@@ -1,4 +1,5 @@
-FROM python:3.11-slim
+# AWS Public ECR mirrors Docker Official Images without Docker Hub rate limits.
+FROM public.ecr.aws/docker/library/python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \

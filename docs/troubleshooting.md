@@ -44,6 +44,13 @@ Enable privileged mode on the CodeBuild environment. Ensure the service role
 can request an ECR authorization token and push image layers. Confirm Docker is
 available with `docker version` in the build log.
 
+## Docker Hub Returns 429 Too Many Requests
+
+CodeBuild workers share public IP addresses and can exhaust Docker Hub's
+anonymous pull quota. The project uses the Docker Official Images mirror at
+`public.ecr.aws/docker/library/python:3.11-slim`, so no Docker Hub login is
+required. Push the current Dockerfile to GitHub and start a new build.
+
 ## YOLOv5 Export Cannot Import pkg_resources
 
 YOLOv5 v7.0 imports `pkg_resources`, which was removed from newer setuptools
