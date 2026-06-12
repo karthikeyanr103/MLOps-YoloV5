@@ -1,0 +1,14 @@
+services:
+  # Mount local model folders read-only so artifacts stay outside the image.
+  inference-api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "${PORT:-8000}:8000"
+    environment:
+      MODEL_ROOT: /app/models
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - ../models:/app/models:ro
+    restart: unless-stopped

@@ -1,0 +1,10 @@
+fastapi==0.115.12
+uvicorn[standard]==0.34.2
+gunicorn==23.0.0
+onnxruntime==1.22.0
+numpy==2.2.6
+Pillow==11.2.1
+python-multipart==0.0.20
+Jinja2==3.1.6
+boto3==1.38.29
+requests==2.32.3

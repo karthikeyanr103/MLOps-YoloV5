@@ -1,0 +1,273 @@
+
+<style>
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.75;transform:scale(.95)} }
+@keyframes flow { 0%{stroke-dashoffset:40} 100%{stroke-dashoffset:0} }
+@keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
+@keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+@keyframes pop { 0%{transform:scale(.8);opacity:0} 60%{transform:scale(1.08)} 100%{transform:scale(1);opacity:1} }
+
+.flow-line { stroke-dasharray:8 4; animation:flow 1.2s linear infinite; }
+.flow-line-slow { stroke-dasharray:8 4; animation:flow 2s linear infinite; }
+.node-float { animation:float 3s ease-in-out infinite; }
+.node-float:nth-child(2) { animation-delay:.4s; }
+.node-float:nth-child(3) { animation-delay:.8s; }
+.node-float:nth-child(4) { animation-delay:1.2s; }
+.node-float:nth-child(5) { animation-delay:1.6s; }
+.node-float:nth-child(6) { animation-delay:2s; }
+
+.card-wrap {
+  padding: 0;
+  font-family: var(--font-sans);
+  overflow: hidden;
+}
+.title-bar {
+  text-align: center;
+  padding: 18px 0 4px;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  letter-spacing:.01em;
+}
+.subtitle-bar {
+  text-align:center;
+  font-size:12px;
+  color:var(--color-text-secondary);
+  margin-bottom: 8px;
+}
+.tooltip {
+  position:absolute;
+  background:var(--color-background-secondary);
+  border:1px solid var(--color-border-secondary);
+  border-radius:8px;
+  padding:8px 12px;
+  font-size:12px;
+  color:var(--color-text-primary);
+  pointer-events:none;
+  opacity:0;
+  transition:opacity .2s;
+  max-width:180px;
+  z-index:10;
+  box-shadow:0 2px 8px rgba(0,0,0,.1);
+}
+.stage-indicator {
+  display:flex;
+  justify-content:center;
+  gap:6px;
+  padding:10px 0 6px;
+}
+.stage-dot {
+  width:8px;height:8px;
+  border-radius:50%;
+  background:var(--color-border-secondary);
+  cursor:pointer;
+  transition:background .2s, transform .15s;
+}
+.stage-dot.active {
+  background:var(--color-text-info, #178FD0);
+  transform:scale(1.3);
+}
+.info-bar {
+  min-height:36px;
+  text-align:center;
+  font-size:12.5px;
+  color:var(--color-text-secondary);
+  padding:4px 24px 10px;
+  line-height:1.5;
+}
+</style>
+
+<div class="card-wrap">
+  <div class="title-bar">MLOps YoloV5 Pipeline</div>
+  <div class="subtitle-bar">CI/CD automation for model deployment</div>
+  <div style="position:relative;">
+    <svg id="main-svg" width="100%" viewBox="0 0 680 420" role="img">
+      <title>MLOps YoloV5 Workflow Diagram</title>
+      <desc>Animated pipeline showing S3 → Lambda → CodeBuild → Docker → ECR → Heroku with SNS notifications</desc>
+      <defs>
+        <marker id="arrowB" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </marker>
+        <filter id="glow-amber">
+          <feGaussianBlur stdDeviation="2" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+
+      <!-- Background lane -->
+      <rect x="20" y="10" width="640" height="400" rx="16" fill="none" stroke="var(--color-border-tertiary)" stroke-width="1"/>
+
+      <!-- ── FLOW LINES ── -->
+      <!-- S3 → Lambda -->
+      <line class="flow-line" x1="112" y1="80" x2="200" y2="80" stroke="#2E86DE" stroke-width="2" marker-end="url(#arrowB)"/>
+      <!-- Lambda → CodeBuild -->
+      <line class="flow-line" x1="290" y1="80" x2="348" y2="80" stroke="#2E86DE" stroke-width="2" marker-end="url(#arrowB)"/>
+      <!-- CodeBuild → SNS (top) -->
+      <path class="flow-line-slow" d="M420 58 Q500 30 568 58" fill="none" stroke="#E84393" stroke-width="2" marker-end="url(#arrowB)"/>
+      <!-- CodeBuild → Docker (down) -->
+      <line class="flow-line" x1="388" y1="112" x2="388" y2="200" stroke="#0db7ed" stroke-width="2" marker-end="url(#arrowB)"/>
+      <!-- Docker → ECR (down) -->
+      <line class="flow-line" x1="388" y1="278" x2="388" y2="330" stroke="#F58220" stroke-width="2" marker-end="url(#arrowB)"/>
+      <!-- ECR → Heroku -->
+      <line class="flow-line-slow" x1="440" y1="362" x2="530" y2="362" stroke="#79589F" stroke-width="2" marker-end="url(#arrowB)"/>
+      <!-- Heroku → SNS (deploy status) -->
+      <path class="flow-line-slow" d="M600 340 Q620 260 600 148" fill="none" stroke="#E84393" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrowB)"/>
+
+      <!-- ── NODE: S3 ── -->
+      <g class="node-float" id="n-s3" style="cursor:pointer" onmouseenter="showTip(event,'s3')" onmouseleave="hideTip()">
+        <rect x="28" y="50" width="84" height="60" rx="10" fill="#2D7A3A" stroke="#48A857" stroke-width="1"/>
+        <!-- Bucket icon (simplified) -->
+        <ellipse cx="70" cy="68" rx="24" ry="7" fill="#48A857"/>
+        <rect x="46" y="68" width="48" height="22" fill="#3D8F4B"/>
+        <ellipse cx="70" cy="90" rx="24" ry="5" fill="#2D7A3A" stroke="#48A857" stroke-width="1"/>
+        <text class="ts" x="70" y="104" text-anchor="middle" fill="#A8E6B0" font-size="10">S3 bucket</text>
+      </g>
+
+      <!-- ── NODE: Lambda ── -->
+      <g class="node-float" id="n-lambda" style="cursor:pointer" onmouseenter="showTip(event,'lambda')" onmouseleave="hideTip()">
+        <rect x="200" y="50" width="90" height="60" rx="10" fill="#E07B18" stroke="#F5A623" stroke-width="1"/>
+        <!-- Lambda λ -->
+        <text x="245" y="86" text-anchor="middle" fill="white" font-size="26" font-weight="500" font-family="serif">λ</text>
+        <text class="ts" x="245" y="104" text-anchor="middle" fill="#FDE3BF" font-size="10">Lambda</text>
+      </g>
+
+      <!-- ── NODE: CodeBuild ── -->
+      <g class="node-float" id="n-cb" style="cursor:pointer" onmouseenter="showTip(event,'cb')" onmouseleave="hideTip()">
+        <rect x="348" y="50" width="80" height="62" rx="10" fill="#1F5E38" stroke="#2ECC71" stroke-width="1"/>
+        <!-- CB cube-ish icon -->
+        <polygon points="388,58 408,64 408,80 388,86 368,80 368,64" fill="#2ECC71" opacity=".3"/>
+        <polygon points="388,58 408,64 388,70 368,64" fill="#2ECC71" opacity=".6"/>
+        <polygon points="408,64 408,80 388,86 388,70" fill="#1F5E38" stroke="#2ECC71" stroke-width=".5"/>
+        <polygon points="368,64 388,70 388,86 368,80" fill="#2ECC71" opacity=".25"/>
+        <text class="ts" x="388" y="102" text-anchor="middle" fill="#A8F5C8" font-size="10">CodeBuild</text>
+      </g>
+
+      <!-- ── NODE: SNS ── -->
+      <g class="node-float" id="n-sns" style="cursor:pointer" onmouseenter="showTip(event,'sns')" onmouseleave="hideTip()">
+        <rect x="550" y="50" width="90" height="62" rx="10" fill="#A02060" stroke="#E84393" stroke-width="1"/>
+        <!-- Bell icon -->
+        <path d="M595 62 Q595 57 600 57 Q605 57 605 62 L607 75 Q612 77 612 80 L588 80 Q588 77 593 75 Z" fill="#F5B8D5" opacity=".8"/>
+        <rect x="597" y="80" width="6" height="4" rx="2" fill="#F5B8D5"/>
+        <text class="ts" x="595" y="104" text-anchor="middle" fill="#F5B8D5" font-size="10">SNS alerts</text>
+      </g>
+
+      <!-- Labels on arrows -->
+      <text class="ts" x="440" y="26" text-anchor="middle" fill="var(--color-text-secondary)" font-size="10">new file alert</text>
+      <text class="ts" x="630" y="250" text-anchor="start" fill="var(--color-text-secondary)" font-size="10" transform="rotate(90,630,250)">deploy status</text>
+
+      <!-- ── NODE: Docker ── -->
+      <g class="node-float" id="n-docker" style="cursor:pointer" onmouseenter="showTip(event,'docker')" onmouseleave="hideTip()">
+        <rect x="342" y="200" width="92" height="62" rx="10" fill="#1a4f6e" stroke="#0db7ed" stroke-width="1"/>
+        <!-- Whale shape (simplified) -->
+        <ellipse cx="388" cy="224" rx="24" ry="10" fill="#0db7ed" opacity=".7"/>
+        <rect x="365" y="224" width="8" height="5" rx="2" fill="#0db7ed"/>
+        <rect x="376" y="224" width="8" height="5" rx="2" fill="#0db7ed"/>
+        <rect x="387" y="224" width="8" height="5" rx="2" fill="#0db7ed"/>
+        <path d="M395 218 Q406 210 410 214" stroke="#0db7ed" stroke-width="2" fill="none"/>
+        <text class="ts" x="388" y="254" text-anchor="middle" fill="#9EE3F8" font-size="10">Docker build</text>
+      </g>
+
+      <!-- ── NODE: ECR ── -->
+      <g class="node-float" id="n-ecr" style="cursor:pointer" onmouseenter="showTip(event,'ecr')" onmouseleave="hideTip()">
+        <rect x="344" y="330" width="88" height="60" rx="10" fill="#8C3F00" stroke="#F58220" stroke-width="1"/>
+        <!-- Container icon -->
+        <rect x="360" y="340" width="56" height="36" rx="4" fill="#F58220" opacity=".25" stroke="#F58220" stroke-width=".8"/>
+        <line x1="388" y1="340" x2="388" y2="376" stroke="#F58220" stroke-width=".8" opacity=".5"/>
+        <line x1="360" y1="358" x2="416" y2="358" stroke="#F58220" stroke-width=".8" opacity=".5"/>
+        <text class="ts" x="388" y="382" text-anchor="middle" fill="#FCC88A" font-size="10">AWS ECR</text>
+      </g>
+
+      <!-- ── NODE: Heroku ── -->
+      <g class="node-float" id="n-heroku" style="cursor:pointer" onmouseenter="showTip(event,'heroku')" onmouseleave="hideTip()">
+        <rect x="530" y="332" width="90" height="60" rx="10" fill="#3C1F6E" stroke="#79589F" stroke-width="1"/>
+        <!-- H logo simplified -->
+        <text x="575" y="369" text-anchor="middle" fill="#C9A8F0" font-size="28" font-weight="700">H</text>
+        <text class="ts" x="575" y="384" text-anchor="middle" fill="#C9A8F0" font-size="10">Heroku</text>
+      </g>
+
+      <!-- Step labels -->
+      <text x="70" y="122" text-anchor="middle" fill="var(--color-text-tertiary)" font-size="9">① trigger</text>
+      <text x="245" y="122" text-anchor="middle" fill="var(--color-text-tertiary)" font-size="9">② invoke</text>
+      <text x="388" y="190" text-anchor="middle" fill="var(--color-text-tertiary)" font-size="9">③ build image</text>
+      <text x="388" y="322" text-anchor="middle" fill="var(--color-text-tertiary)" font-size="9">④ push</text>
+      <text x="490" y="378" text-anchor="middle" fill="var(--color-text-tertiary)" font-size="9">⑤ deploy</text>
+
+    </svg>
+    <div class="tooltip" id="tooltip"></div>
+  </div>
+
+  <div class="stage-indicator" id="dots"></div>
+  <div class="info-bar" id="info-bar">Hover any node to inspect · Click a dot to highlight a stage</div>
+</div>
+
+<script>
+const tips = {
+  s3:     {title:'AWS S3 Bucket', desc:'Stores new model weights. An upload event triggers the entire pipeline automatically.'},
+  lambda: {title:'AWS Lambda',    desc:'Serverless function that detects the S3 event and kicks off CodeBuild.'},
+  cb:     {title:'AWS CodeBuild', desc:'Pulls the repo, injects the new model, and runs the Docker build command.'},
+  sns:    {title:'AWS SNS',       desc:'Sends email/SMS alerts on file upload and on deploy success or failure.'},
+  docker: {title:'Docker',        desc:'Packages the YoloV5 model + inference server into a portable container image.'},
+  ecr:    {title:'AWS ECR',       desc:'Private container registry that stores and versions Docker images.'},
+  heroku: {title:'Heroku',        desc:'Pulls the latest image from ECR and runs it as a live web service.'},
+};
+
+const stages = [
+  {ids:['n-s3','n-lambda'],            label:'Stage 1 — Upload trigger: S3 upload fires Lambda automatically.'},
+  {ids:['n-lambda','n-cb'],            label:'Stage 2 — Build trigger: Lambda tells CodeBuild to start.'},
+  {ids:['n-cb','n-docker'],            label:'Stage 3 — Image build: CodeBuild builds a fresh Docker image with the new model.'},
+  {ids:['n-docker','n-ecr'],           label:'Stage 4 — Push to registry: Docker image is pushed to AWS ECR.'},
+  {ids:['n-ecr','n-heroku'],           label:'Stage 5 — Deploy: Heroku pulls the image from ECR and goes live.'},
+  {ids:['n-heroku','n-sns','n-cb'],    label:'Stage 6 — Notify: SNS sends success/failure alerts back to the team.'},
+];
+
+const dotsEl = document.getElementById('dots');
+const infoEl = document.getElementById('info-bar');
+let activeStage = -1;
+
+stages.forEach((_,i) => {
+  const d = document.createElement('div');
+  d.className = 'stage-dot';
+  d.onclick = () => activateStage(i);
+  dotsEl.appendChild(d);
+});
+
+function activateStage(idx) {
+  if (activeStage === idx) { clearStage(); return; }
+  clearStage();
+  activeStage = idx;
+  dotsEl.children[idx].classList.add('active');
+  infoEl.textContent = stages[idx].label;
+  stages[idx].ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.style.filter='drop-shadow(0 0 6px #F5A62388)'; el.style.transform='scale(1.06)'; el.style.transition='transform .2s'; }
+  });
+}
+function clearStage() {
+  stages.forEach(s => s.ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.style.filter=''; el.style.transform=''; }
+  }));
+  if (activeStage >= 0) dotsEl.children[activeStage].classList.remove('active');
+  activeStage = -1;
+  infoEl.textContent = 'Hover any node to inspect · Click a dot to highlight a stage';
+}
+
+const tooltip = document.getElementById('tooltip');
+function showTip(e, key) {
+  const t = tips[key]; if (!t) return;
+  tooltip.innerHTML = `<strong style="font-size:12px;color:var(--color-text-primary)">${t.title}</strong><br>${t.desc}`;
+  tooltip.style.opacity = '1';
+  moveTip(e);
+}
+function hideTip() { tooltip.style.opacity = '0'; }
+document.getElementById('main-svg').addEventListener('mousemove', moveTip);
+function moveTip(e) {
+  const rect = document.getElementById('main-svg').getBoundingClientRect();
+  const wrap = document.querySelector('.card-wrap').getBoundingClientRect();
+  let x = e.clientX - wrap.left + 12;
+  let y = e.clientY - wrap.top + 12;
+  if (x + 200 > wrap.width) x -= 210;
+  tooltip.style.left = x + 'px';
+  tooltip.style.top = y + 'px';
+}
+</script>

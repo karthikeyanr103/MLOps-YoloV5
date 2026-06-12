@@ -1,0 +1,51 @@
+/* Editorial dashboard palette shared by desktop and mobile layouts. */
+:root {
+  --ink: #12201d;
+  --muted: #5d6d68;
+  --paper: #f4f1e9;
+  --card: #fffdf7;
+  --accent: #df5b35;
+  --accent-dark: #ad3d20;
+  --line: #d9d4c7;
+  --green: #1e6b56;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  color: var(--ink);
+  background: var(--paper);
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+.hero {
+  padding: 1.2rem max(5vw, 1.25rem) 5rem;
+  color: #fff;
+  background:
+    radial-gradient(circle at 78% 20%, rgba(223, 91, 53, .65), transparent 26rem),
+    linear-gradient(135deg, #10251f, #174b3c);
+}
+nav { display: flex; justify-content: space-between; align-items: center; }
+nav a { color: #fff; text-decoration: none; border-bottom: 1px solid #fff8; }
+.hero-copy { max-width: 780px; margin-top: 5rem; }
+h1 { max-width: 720px; margin: .4rem 0 1rem; font: 700 clamp(2.5rem, 7vw, 5.6rem)/.98 Georgia, serif; }
+h2 { margin: .2rem 0 1.2rem; font: 700 2rem Georgia, serif; }
+.eyebrow { color: #eeb099; font-size: .75rem; font-weight: 800; letter-spacing: .16em; }
+main { width: min(1100px, 92vw); margin: -2rem auto 4rem; display: grid; gap: 1.2rem; grid-template-columns: 1fr 1fr; }
+.panel { padding: 2rem; border: 1px solid var(--line); background: var(--card); box-shadow: 0 18px 45px #263c3420; }
+form { display: grid; gap: .75rem; }
+label { font-size: .85rem; font-weight: 700; }
+select, button, .drop-zone { width: 100%; border-radius: 4px; font: inherit; }
+select { padding: .85rem; border: 1px solid var(--line); background: white; }
+.drop-zone { padding: 2.6rem 1rem; border: 1px dashed var(--green); color: var(--green); text-align: center; cursor: pointer; }
+.drop-zone input { display: block; max-width: 100%; margin: .8rem auto 0; }
+button { padding: .9rem; border: 0; color: white; background: var(--accent); font-weight: 800; cursor: pointer; }
+button:hover { background: var(--accent-dark); }
+pre { min-height: 330px; margin: 0; padding: 1rem; overflow: auto; color: #d9f3e9; background: #10251f; border-radius: 4px; white-space: pre-wrap; }
+.status-grid { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, 1fr); gap: .75rem; }
+.status-grid article { display: flex; justify-content: space-between; padding: 1rem; border: 1px solid var(--line); background: var(--card); text-transform: capitalize; }
+.status-grid strong { color: var(--green); }
+footer { padding: 2rem; color: var(--muted); text-align: center; }
+@media (max-width: 760px) {
+  main { grid-template-columns: 1fr; }
+  .status-grid { grid-template-columns: 1fr 1fr; }
+}

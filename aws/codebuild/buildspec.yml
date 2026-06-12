@@ -1,0 +1,68 @@
+version: 0.2
+
+env:
+  shell: bash
+  variables:
+    MODEL_OUTPUT_PATH: "models/object_detection/model.onnx"
+    ENABLE_HEROKU_DEPLOY: "false"
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.11
+    commands:
+      - python -m pip install --upgrade pip
+      - pip install -r requirements-conversion.txt
+  pre_build:
+    commands:
+      - test -n "$SOURCE_MODEL_BUCKET"
+      - test -n "$SOURCE_MODEL_KEY"
+      - ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+      - ECR_REGISTRY="$ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com"
+      - IMAGE_TAG="build-${CODEBUILD_BUILD_NUMBER}-$(date +%Y%m%d%H%M%S)"
+      - SOURCE_MODEL_NAME="$(basename "$SOURCE_MODEL_KEY")"
+      - mkdir -p "$(dirname "$MODEL_OUTPUT_PATH")" .build
+      - aws s3 cp "s3://$SOURCE_MODEL_BUCKET/$SOURCE_MODEL_KEY" ".build/$SOURCE_MODEL_NAME"
+      - aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "$ECR_REGISTRY"
+      - aws sns publish --topic-arn "$SNS_TOPIC_ARN" --subject "MLOps-YoloV5 build started" --message "CodeBuild $CODEBUILD_BUILD_ID is processing s3://$SOURCE_MODEL_BUCKET/$SOURCE_MODEL_KEY"
+  build:
+    commands:
+      - |
+        if [[ "$SOURCE_MODEL_NAME" == *.onnx ]]; then
+          cp ".build/$SOURCE_MODEL_NAME" "$MODEL_OUTPUT_PATH"
+        else
+          python scripts/convert_to_onnx.py \
+            --input ".build/$SOURCE_MODEL_NAME" \
+            --output "$MODEL_OUTPUT_PATH" \
+            --task "${MODEL_TASK:-object_detection}"
+        fi
+      - docker build --platform linux/amd64 -f docker/Dockerfile -t "$ECR_REPOSITORY_URI:$IMAGE_TAG" .
+      - docker push "$ECR_REPOSITORY_URI:$IMAGE_TAG"
+      - printf '{"image":"%s","model":"s3://%s/%s","build":"%s"}' "$ECR_REPOSITORY_URI:$IMAGE_TAG" "$SOURCE_MODEL_BUCKET" "$SOURCE_MODEL_KEY" "$CODEBUILD_BUILD_ID" > image-detail.json
+      - |
+        if [[ "$ENABLE_HEROKU_DEPLOY" == "true" ]]; then
+          test -n "$HEROKU_API_KEY"
+          test -n "$HEROKU_APP_NAME"
+          echo "$HEROKU_API_KEY" | docker login --username=_ --password-stdin registry.heroku.com
+          docker tag "$ECR_REPOSITORY_URI:$IMAGE_TAG" "registry.heroku.com/$HEROKU_APP_NAME/web"
+          docker push "registry.heroku.com/$HEROKU_APP_NAME/web"
+          HEROKU_IMAGE_ID="$(docker inspect "registry.heroku.com/$HEROKU_APP_NAME/web" --format={{.Id}})"
+          curl --fail --silent --show-error \
+            -X PATCH "https://api.heroku.com/apps/$HEROKU_APP_NAME/formation" \
+            -H "Authorization: Bearer $HEROKU_API_KEY" \
+            -H "Content-Type: application/json" \
+            -H "Accept: application/vnd.heroku+json; version=3.docker-releases" \
+            -d '{"updates":[{"type":"web","docker_image":"'"$HEROKU_IMAGE_ID"'"}]}'
+        fi
+  post_build:
+    commands:
+      - |
+        if [[ "$CODEBUILD_BUILD_SUCCEEDING" == "1" ]]; then
+          aws sns publish --topic-arn "$SNS_TOPIC_ARN" --subject "MLOps-YoloV5 deployment succeeded" --message "Published $ECR_REPOSITORY_URI:$IMAGE_TAG. Heroku enabled: $ENABLE_HEROKU_DEPLOY"
+        else
+          aws sns publish --topic-arn "$SNS_TOPIC_ARN" --subject "MLOps-YoloV5 deployment failed" --message "CodeBuild execution $CODEBUILD_BUILD_ID failed. Review CloudWatch build logs."
+        fi
+
+artifacts:
+  files:
+    - image-detail.json
