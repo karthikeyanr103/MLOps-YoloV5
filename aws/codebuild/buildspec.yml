@@ -21,8 +21,20 @@ phases:
       - test -n "$SOURCE_MODEL_KEY"
       - test -n "$ECR_REPOSITORY_URI" || { echo "ECR_REPOSITORY_URI is not configured"; exit 1; }
       - test -n "$SNS_TOPIC_ARN" || { echo "SNS_TOPIC_ARN is not configured"; exit 1; }
+      - |
+        if [[ "${ENABLE_HF_DEPLOY:-false}" == "true" ]]; then
+          test -n "${HF_SPACE_ID:-}" || { echo "HF_SPACE_ID is not configured"; exit 1; }
+          test -n "${HF_TOKEN:-}" || { echo "HF_TOKEN is not configured"; exit 1; }
+          [[ "$HF_SPACE_ID" =~ ^[^/]+/[^/]+$ ]] || { echo "HF_SPACE_ID must use owner/space-name"; exit 1; }
+          python -c "import os; from huggingface_hub import HfApi; account = HfApi(token=os.environ['HF_TOKEN']).whoami(); print('Authenticated to Hugging Face as', account['name'])"
+        fi
       - ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
       - ECR_REGISTRY="$ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com"
+      - |
+        if [[ "$ECR_REPOSITORY_URI" != "$ECR_REGISTRY/"* ]]; then
+          echo "ECR_REPOSITORY_URI must belong to $ECR_REGISTRY"
+          exit 1
+        fi
       - IMAGE_TAG="build-${CODEBUILD_BUILD_NUMBER}-$(date +%Y%m%d%H%M%S)"
       - SOURCE_MODEL_NAME="$(basename "$SOURCE_MODEL_KEY")"
       - SOURCE_MODEL_PATH=".build/$SOURCE_MODEL_NAME"
@@ -62,6 +74,9 @@ phases:
           cp "$EXPORTED_MODEL_PATH" "$MODEL_OUTPUT_PATH"
         fi
       - docker build --platform linux/amd64 -f docker/Dockerfile -t "$ECR_REPOSITORY_URI:$IMAGE_TAG" .
+      - |
+        docker run --rm "$ECR_REPOSITORY_URI:$IMAGE_TAG" python -c \
+          "from PIL import Image; from app.services.onnx_inference import predict; result = predict('object_detection', Image.new('RGB', (640, 480))); assert result['model_status'] == 'yolov5s', result; print('YOLOv5 ONNX smoke test passed')"
       - docker push "$ECR_REPOSITORY_URI:$IMAGE_TAG"
       - printf '{"image":"%s","model":"s3://%s/%s","build":"%s"}' "$ECR_REPOSITORY_URI:$IMAGE_TAG" "$SOURCE_MODEL_BUCKET" "$SOURCE_MODEL_KEY" "$CODEBUILD_BUILD_ID" > image-detail.json
       - |
@@ -75,11 +90,13 @@ phases:
   post_build:
     commands:
       - |
+        set +e
         if [[ "$CODEBUILD_BUILD_SUCCEEDING" == "1" ]]; then
           aws sns publish --topic-arn "$SNS_TOPIC_ARN" --subject "MLOps-YoloV5 deployment succeeded" --message "Published $ECR_REPOSITORY_URI:$IMAGE_TAG. Hugging Face enabled: $ENABLE_HF_DEPLOY"
         else
           aws sns publish --topic-arn "$SNS_TOPIC_ARN" --subject "MLOps-YoloV5 deployment failed" --message "CodeBuild execution $CODEBUILD_BUILD_ID failed. Review CloudWatch build logs."
         fi
+        exit 0
 
 artifacts:
   files:

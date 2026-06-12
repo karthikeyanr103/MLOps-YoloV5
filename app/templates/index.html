@@ -3,55 +3,172 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Multi-task ONNX computer vision inference demo">
-  <title>MLOps-YoloV5 | Inference Studio</title>
+  <meta name="description" content="YOLOv5 ONNX computer vision inference studio">
+  <title>MLOps-YoloV5 | Vision Studio</title>
   <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}">
 </head>
 <body>
-  <!-- The browser client calls the same public endpoints documented by OpenAPI. -->
-  <header class="hero">
-    <nav><strong>MLOps-YoloV5</strong><a href="/docs">OpenAPI Docs</a></nav>
-    <div class="hero-copy">
-      <p class="eyebrow">EVENT-DRIVEN COMPUTER VISION DELIVERY</p>
-      <h1>One upload. Four vision tasks. Automated deployment.</h1>
-      <p>Test the FastAPI interface used by the S3-to-CodeBuild-to-ECR pipeline.</p>
-    </div>
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="MLOps-YoloV5 home">
+      <span class="brand-mark">Y5</span>
+      <span><strong>MLOps-YoloV5</strong><small>Inference Studio</small></span>
+    </a>
+    <nav>
+      <span class="live-status"><i></i> API online</span>
+      <a href="/docs">API docs <span aria-hidden="true">↗</span></a>
+    </nav>
   </header>
+
   <main>
-    <section class="panel">
-      <div>
-        <p class="eyebrow">LIVE INFERENCE</p>
-        <h2>Upload an image</h2>
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">PRODUCTION COMPUTER VISION, IN YOUR BROWSER</p>
+        <h1>See what YOLOv5<br><em>sees.</em></h1>
+        <p class="hero-summary">
+          Upload one image and explore real-time detection, object counting,
+          scene labels, and the MLOps pipeline behind every prediction.
+        </p>
+        <div class="hero-badges">
+          <span>YOLOv5s</span><span>ONNX Runtime</span><span>80 COCO classes</span>
+        </div>
       </div>
-      <form id="prediction-form">
-        <label for="task">Computer vision task</label>
-        <select id="task" name="task">
-          <option value="classification">Image classification</option>
-          <option value="counting">Object counting</option>
-          <option value="segmentation">Image segmentation</option>
-          <option value="object-detection">Object detection</option>
-        </select>
-        <label class="drop-zone" for="image">
-          <span>Choose a JPEG, PNG, or WebP image</span>
-          <input id="image" name="file" type="file" accept="image/jpeg,image/png,image/webp" required>
-        </label>
-        <button type="submit">Run prediction</button>
-      </form>
-    </section>
-    <section class="panel result-panel">
-      <div>
-        <p class="eyebrow">API RESPONSE</p>
-        <h2>Prediction result</h2>
+      <div class="pipeline-card">
+        <p class="pipeline-label">DEPLOYMENT PIPELINE</p>
+        <div class="pipeline">
+          <span>S3</span><i></i><span>Lambda</span><i></i><span>CodeBuild</span>
+          <i></i><span>ECR</span><i></i><span>HF Space</span>
+        </div>
+        <div class="pipeline-meta">
+          <strong>Event-driven model delivery</strong>
+          <span>Automated conversion, validation, and release</span>
+        </div>
       </div>
-      <pre id="result">Select a task and upload an image to begin.</pre>
     </section>
-    <section class="status-grid">
-      {% for task, status in model_status.items() %}
-      <article><span>{{ task.replace('_', ' ') }}</span><strong>{{ status }}</strong></article>
-      {% endfor %}
+
+    <section class="studio">
+      <div class="studio-heading">
+        <div>
+          <p class="eyebrow">LIVE MODEL</p>
+          <h2>Choose an inference task</h2>
+        </div>
+        <p>All active tasks share one optimized YOLOv5s ONNX model.</p>
+      </div>
+
+      <div class="task-grid" role="radiogroup" aria-label="Inference task">
+        <button class="task-card active" type="button" data-task="object-detection"
+                role="radio" aria-checked="true">
+          <span class="task-icon detection-icon"></span>
+          <span><strong>Object detection</strong><small>Boxes, labels, confidence</small></span>
+          <b>LIVE</b>
+        </button>
+        <button class="task-card" type="button" data-task="counting"
+                role="radio" aria-checked="false">
+          <span class="task-icon counting-icon">03</span>
+          <span><strong>Object counting</strong><small>Totals grouped by class</small></span>
+          <b>LIVE</b>
+        </button>
+        <button class="task-card" type="button" data-task="classification"
+                role="radio" aria-checked="false">
+          <span class="task-icon classification-icon"></span>
+          <span><strong>Scene labels</strong><small>Ranked objects in the scene</small></span>
+          <b>LIVE</b>
+        </button>
+        <button class="task-card unavailable" type="button" data-task="segmentation"
+                role="radio" aria-checked="false">
+          <span class="task-icon segmentation-icon"></span>
+          <span><strong>Segmentation</strong><small>Pixel masks and regions</small></span>
+          <b>ROADMAP</b>
+        </button>
+      </div>
+
+      <div class="workspace">
+        <section class="upload-panel">
+          <div class="panel-heading">
+            <span class="step-number">01</span>
+            <div><p>INPUT</p><h3>Upload an image</h3></div>
+          </div>
+
+          <label class="drop-zone" id="drop-zone" for="image">
+            <input id="image" name="file" type="file"
+                   accept="image/jpeg,image/png,image/webp">
+            <span class="upload-symbol" aria-hidden="true">↑</span>
+            <strong>Drop an image here</strong>
+            <span>or click to browse your files</span>
+            <small>JPEG, PNG or WebP · Maximum 10 MB</small>
+          </label>
+
+          <div class="preview-shell hidden" id="preview-shell">
+            <canvas id="preview-canvas"></canvas>
+            <button class="replace-button" id="replace-button" type="button">
+              Replace image
+            </button>
+          </div>
+
+          <div class="file-meta hidden" id="file-meta">
+            <span><strong id="file-name"></strong><small id="file-size"></small></span>
+            <span class="ready-pill">Ready</span>
+          </div>
+
+          <button class="run-button" id="run-button" type="button" disabled>
+            <span id="run-label">Run object detection</span>
+            <span class="button-arrow" aria-hidden="true">→</span>
+          </button>
+          <p class="privacy-note">Your image is processed for inference and is not stored.</p>
+        </section>
+
+        <section class="result-panel" aria-live="polite">
+          <div class="panel-heading">
+            <span class="step-number">02</span>
+            <div><p>OUTPUT</p><h3 id="result-title">Detection results</h3></div>
+            <span class="latency hidden" id="latency"></span>
+          </div>
+
+          <div class="result-empty" id="result-empty">
+            <span class="scan-graphic" aria-hidden="true"></span>
+            <strong>Your results will appear here</strong>
+            <p>Choose a task, upload an image, and run the model.</p>
+          </div>
+
+          <div class="loading-state hidden" id="loading-state">
+            <span class="loader"></span>
+            <strong>YOLOv5 is analyzing the image</strong>
+            <p>Running preprocessing, ONNX inference, and postprocessing.</p>
+          </div>
+
+          <div class="result-content hidden" id="result-content">
+            <div class="metrics" id="metrics"></div>
+            <div class="visual-result" id="visual-result"></div>
+            <details class="json-details">
+              <summary>View API response</summary>
+              <pre id="json-result"></pre>
+            </details>
+          </div>
+
+          <div class="error-state hidden" id="error-state">
+            <strong>Inference could not be completed</strong>
+            <p id="error-message"></p>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section class="model-strip">
+      <div><p class="eyebrow">MODEL HEALTH</p><h2>Deployment status</h2></div>
+      <div class="status-grid">
+        {% for task, status in model_status.items() %}
+        <article>
+          <span class="status-dot {{ 'ready' if 'ready' in status else 'pending' }}"></span>
+          <span><strong>{{ task.replace('_', ' ') }}</strong><small>{{ status.replace('_', ' ') }}</small></span>
+        </article>
+        {% endfor %}
+      </div>
     </section>
   </main>
-  <footer>Built with FastAPI, ONNX Runtime, Docker, AWS, and Hugging Face.</footer>
+
+  <footer>
+    <span><strong>MLOps-YoloV5</strong> · Portfolio inference system</span>
+    <span>FastAPI · ONNX Runtime · AWS · Docker · Hugging Face</span>
+  </footer>
   <script src="{{ url_for('static', path='js/main.js') }}"></script>
 </body>
 </html>
