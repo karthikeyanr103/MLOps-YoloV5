@@ -14,6 +14,7 @@ def test_home_links_versioned_css_and_javascript() -> None:
     assert response.headers["cache-control"] == "no-cache, no-store, must-revalidate"
     assert f"/static/css/style.css?v={ASSET_VERSION}" in response.text
     assert f"/static/js/main.js?v={ASSET_VERSION}" in response.text
+    assert "http://testserver/static/" not in response.text
 
 
 def test_static_assets_are_served() -> None:
