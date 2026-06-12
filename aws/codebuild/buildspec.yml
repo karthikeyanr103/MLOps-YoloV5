@@ -13,6 +13,7 @@ phases:
       python: 3.11
     commands:
       - python -m pip install --upgrade pip
+      - python -m pip install "setuptools<81"
       - pip install -r requirements-conversion.txt
   pre_build:
     commands:
@@ -41,6 +42,7 @@ phases:
   build:
     commands:
       - |
+        set -euo pipefail
         if [[ "$SOURCE_MODEL_NAME" == *.onnx ]]; then
           cp "$SOURCE_MODEL_PATH" "$MODEL_OUTPUT_PATH"
         else
@@ -53,7 +55,9 @@ phases:
             --opset 17 \
             --imgsz 640 \
             --device cpu
-          cp "${SOURCE_MODEL_PATH%.*}.onnx" "$MODEL_OUTPUT_PATH"
+          EXPORTED_MODEL_PATH="${SOURCE_MODEL_PATH%.*}.onnx"
+          test -f "$EXPORTED_MODEL_PATH"
+          cp "$EXPORTED_MODEL_PATH" "$MODEL_OUTPUT_PATH"
         fi
       - docker build --platform linux/amd64 -f docker/Dockerfile -t "$ECR_REPOSITORY_URI:$IMAGE_TAG" .
       - docker push "$ECR_REPOSITORY_URI:$IMAGE_TAG"

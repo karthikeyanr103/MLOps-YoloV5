@@ -44,6 +44,13 @@ Enable privileged mode on the CodeBuild environment. Ensure the service role
 can request an ECR authorization token and push image layers. Confirm Docker is
 available with `docker version` in the build log.
 
+## YOLOv5 Export Cannot Import pkg_resources
+
+YOLOv5 v7.0 imports `pkg_resources`, which was removed from newer setuptools
+releases. The build pins `setuptools<81` for compatibility. Confirm the latest
+`aws/codebuild/buildspec.yml` and `requirements-conversion.txt` are pushed to
+GitHub before starting another build.
+
 ## ECR Login or Push Fails
 
 Check `AWS_DEFAULT_REGION`, the repository URI, IAM permissions, and whether the
