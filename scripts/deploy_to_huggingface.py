@@ -27,12 +27,17 @@ def main() -> None:
         type=Path,
         default=PROJECT_ROOT / "models/object_detection/yolov5s.onnx",
     )
+    parser.add_argument(
+        "--reuse-space-model",
+        action="store_true",
+        help="Update application files without replacing the model in the Space.",
+    )
     args = parser.parse_args()
     token = os.environ.get("HF_TOKEN")
     if not token:
         raise ValueError("HF_TOKEN must be supplied through the environment.")
 
-    if not args.model.is_file():
+    if not args.reuse_space_model and not args.model.is_file():
         raise FileNotFoundError(f"Generated ONNX model not found: {args.model}")
 
     api = HfApi(token=token)
@@ -51,22 +56,28 @@ def main() -> None:
         shutil.copy2(PROJECT_ROOT / "requirements.txt", bundle / "requirements.txt")
         shutil.copy2(PROJECT_ROOT / "huggingface/README.md", bundle / "README.md")
 
-        destination_model = bundle / "models/object_detection/yolov5s.onnx"
-        destination_model.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(args.model, destination_model)
+        delete_patterns = [
+            "app/**",
+            "Dockerfile",
+            "requirements.txt",
+            "README.md",
+        ]
+        if not args.reuse_space_model:
+            destination_model = bundle / "models/object_detection/yolov5s.onnx"
+            destination_model.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(args.model, destination_model)
+            delete_patterns.append("models/**")
 
         api.upload_folder(
             repo_id=args.repo_id,
             repo_type="space",
             folder_path=bundle,
-            commit_message="Deploy YOLOv5s from AWS CodeBuild",
-            delete_patterns=[
-                "app/**",
-                "models/**",
-                "Dockerfile",
-                "requirements.txt",
-                "README.md",
-            ],
+            commit_message=(
+                "Deploy application update from AWS CodeBuild"
+                if args.reuse_space_model
+                else "Deploy YOLOv5s model and application from AWS CodeBuild"
+            ),
+            delete_patterns=delete_patterns,
         )
 
     print(f"Published Docker Space: https://huggingface.co/spaces/{args.repo_id}")

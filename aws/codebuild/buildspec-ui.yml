@@ -1,0 +1,25 @@
+version: 0.2
+
+env:
+  shell: bash
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.11
+    commands:
+      - python -m pip install --upgrade pip
+      - pip install "huggingface_hub==0.33.5"
+  pre_build:
+    commands:
+      - test -n "$HF_SPACE_ID" || { echo "HF_SPACE_ID is not configured"; exit 1; }
+      - test -n "$HF_TOKEN" || { echo "HF_TOKEN is not configured"; exit 1; }
+      - '[[ "$HF_SPACE_ID" =~ ^[^/]+/[^/]+$ ]] || { echo "HF_SPACE_ID must use owner/space-name"; exit 1; }'
+      - python -c "import os; from huggingface_hub import HfApi; account = HfApi(token=os.environ['HF_TOKEN']).whoami(); print('Authenticated to Hugging Face as', account['name'])"
+  build:
+    commands:
+      - python scripts/deploy_to_huggingface.py --repo-id "$HF_SPACE_ID" --reuse-space-model
+
+  post_build:
+    commands:
+      - echo "Hugging Face UI deployment finished"

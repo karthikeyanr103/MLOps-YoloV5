@@ -153,6 +153,11 @@ Each S3 model upload now updates ECR and publishes a new Hugging Face Space
 commit. Full instructions are in the
 [Hugging Face deployment guide](docs/huggingface-deployment-guide.md).
 
+For UI and application-only changes, use the lightweight
+[`buildspec-ui.yml`](aws/codebuild/buildspec-ui.yml). It reuses the ONNX model
+already in the Space and can deploy automatically on every GitHub push. See the
+[UI-only deployment guide](docs/ui-only-deployment.md).
+
 ## Repository Map
 
 | Path | Purpose |
@@ -200,6 +205,7 @@ in [videos/README.md](videos/README.md).
 - [Project overview](docs/project-overview.md)
 - [AWS setup guide](docs/aws-setup-guide.md)
 - [Hugging Face deployment guide](docs/huggingface-deployment-guide.md)
+- [UI-only deployment guide](docs/ui-only-deployment.md)
 - [Model conversion guide](docs/model-conversion-guide.md)
 - [API usage guide](docs/api-usage-guide.md)
 - [Troubleshooting](docs/troubleshooting.md)
