@@ -33,7 +33,7 @@ def test_all_prediction_routes_accept_images() -> None:
     expectations = {
         "classification": "not_installed",
         "counting": "not_installed",
-        "segmentation": "not_configured",
+        "segmentation": "not_installed",
         "object-detection": "not_installed",
     }
     for route, expected_status in expectations.items():

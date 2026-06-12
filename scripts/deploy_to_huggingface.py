@@ -12,9 +12,17 @@ from huggingface_hub import HfApi
 
 PROJECT_ROOT = Path(__file__).parents[1]
 REQUIRED_UI_FILES = {
+    "app/static/samples/classification.jpg",
+    "app/static/samples/counting.jpg",
+    "app/static/samples/object-detection.jpg",
+    "app/static/samples/segmentation.jpg",
     "app/templates/index.html",
     "app/static/css/style.css",
     "app/static/js/main.js",
+}
+REQUIRED_MODEL_FILES = {
+    "models/object_detection/yolov5s.onnx",
+    "models/segmentation/yolov5s-seg.onnx",
 }
 
 
@@ -33,6 +41,11 @@ def main() -> None:
         default=PROJECT_ROOT / "models/object_detection/yolov5s.onnx",
     )
     parser.add_argument(
+        "--segmentation-model",
+        type=Path,
+        default=PROJECT_ROOT / "models/segmentation/yolov5s-seg.onnx",
+    )
+    parser.add_argument(
         "--reuse-space-model",
         action="store_true",
         help="Update application files without replacing the model in the Space.",
@@ -42,8 +55,17 @@ def main() -> None:
     if not token:
         raise ValueError("HF_TOKEN must be supplied through the environment.")
 
-    if not args.reuse_space_model and not args.model.is_file():
-        raise FileNotFoundError(f"Generated ONNX model not found: {args.model}")
+    if not args.reuse_space_model:
+        missing_models = [
+            model
+            for model in (args.model, args.segmentation_model)
+            if not model.is_file()
+        ]
+        if missing_models:
+            raise FileNotFoundError(
+                "Generated ONNX model not found: "
+                + ", ".join(str(model) for model in missing_models)
+            )
     missing_ui_files = [
         relative_path
         for relative_path in REQUIRED_UI_FILES
@@ -80,6 +102,14 @@ def main() -> None:
             destination_model = bundle / "models/object_detection/yolov5s.onnx"
             destination_model.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(args.model, destination_model)
+            destination_segmentation_model = (
+                bundle / "models/segmentation/yolov5s-seg.onnx"
+            )
+            destination_segmentation_model.parent.mkdir(
+                parents=True,
+                exist_ok=True,
+            )
+            shutil.copy2(args.segmentation_model, destination_segmentation_model)
             delete_patterns.append("models/**")
 
         api.upload_folder(
@@ -95,7 +125,10 @@ def main() -> None:
         )
 
     remote_files = set(api.list_repo_files(args.repo_id, repo_type="space"))
-    missing_remote_files = REQUIRED_UI_FILES - remote_files
+    required_remote_files = set(REQUIRED_UI_FILES)
+    if not args.reuse_space_model:
+        required_remote_files.update(REQUIRED_MODEL_FILES)
+    missing_remote_files = required_remote_files - remote_files
     if missing_remote_files:
         raise RuntimeError(
             "Hugging Face deployment is missing required UI files: "

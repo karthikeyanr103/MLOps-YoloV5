@@ -25,10 +25,12 @@ The included preprocessor emits `[1, 3, 640, 640]` float32 input. Inspect the
 model with Netron or `session.get_inputs()`, then update size, layout, and
 normalization in `app/services/preprocessing.py`.
 
-## Segmentation Is Not Configured
+## Segmentation Model Is Not Installed
 
-This is expected with the default `yolov5s` detector. Segmentation requires a
-separate `yolov5s-seg` export and prototype-mask decoding.
+Segmentation uses a separate `yolov5s-seg` export and prototype-mask decoder.
+Run a new full CodeBuild deployment after pulling the latest repository
+changes; a UI-only deployment intentionally reuses the models already stored
+in the Space and cannot add a missing segmentation model.
 
 ## Lambda Does Not Run
 

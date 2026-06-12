@@ -4,6 +4,7 @@ env:
   shell: bash
   variables:
     MODEL_OUTPUT_PATH: "models/object_detection/yolov5s.onnx"
+    SEGMENTATION_MODEL_OUTPUT_PATH: "models/segmentation/yolov5s-seg.onnx"
     YOLOV5_REF: "v7.0"
     ENABLE_HF_DEPLOY: "false"
 
@@ -38,7 +39,7 @@ phases:
       - IMAGE_TAG="build-${CODEBUILD_BUILD_NUMBER}-$(date +%Y%m%d%H%M%S)"
       - SOURCE_MODEL_NAME="$(basename "$SOURCE_MODEL_KEY")"
       - SOURCE_MODEL_PATH=".build/$SOURCE_MODEL_NAME"
-      - mkdir -p "$(dirname "$MODEL_OUTPUT_PATH")" .build
+      - mkdir -p "$(dirname "$MODEL_OUTPUT_PATH")" "$(dirname "$SEGMENTATION_MODEL_OUTPUT_PATH")" .build
       - |
         if [[ -n "${SOURCE_MODEL_VERSION:-}" ]]; then
           aws s3api get-object \
@@ -57,12 +58,12 @@ phases:
     commands:
       - |
         set -euo pipefail
+        git clone --branch "$YOLOV5_REF" --depth 1 \
+          https://github.com/ultralytics/yolov5.git .build/yolov5
+        pip install -r .build/yolov5/requirements.txt
         if [[ "$SOURCE_MODEL_NAME" == *.onnx ]]; then
           cp "$SOURCE_MODEL_PATH" "$MODEL_OUTPUT_PATH"
         else
-          git clone --branch "$YOLOV5_REF" --depth 1 \
-            https://github.com/ultralytics/yolov5.git .build/yolov5
-          pip install -r .build/yolov5/requirements.txt
           python .build/yolov5/export.py \
             --weights "$SOURCE_MODEL_PATH" \
             --include onnx \
@@ -73,10 +74,19 @@ phases:
           test -f "$EXPORTED_MODEL_PATH"
           cp "$EXPORTED_MODEL_PATH" "$MODEL_OUTPUT_PATH"
         fi
+        python -c "import urllib.request; urllib.request.urlretrieve('https://github.com/ultralytics/yolov5/releases/download/v7.0/yolov5s-seg.pt', '.build/yolov5s-seg.pt')"
+        python .build/yolov5/export.py \
+          --weights .build/yolov5s-seg.pt \
+          --include onnx \
+          --opset 17 \
+          --imgsz 640 \
+          --device cpu
+        test -f .build/yolov5s-seg.onnx
+        cp .build/yolov5s-seg.onnx "$SEGMENTATION_MODEL_OUTPUT_PATH"
       - docker build --platform linux/amd64 -f docker/Dockerfile -t "$ECR_REPOSITORY_URI:$IMAGE_TAG" .
       - |
         docker run --rm "$ECR_REPOSITORY_URI:$IMAGE_TAG" python -c \
-          "from PIL import Image; from app.services.onnx_inference import predict; result = predict('object_detection', Image.new('RGB', (640, 480))); assert result['model_status'] == 'yolov5s', result; print('YOLOv5 ONNX smoke test passed')"
+          "from PIL import Image; from app.services.onnx_inference import predict; image = Image.new('RGB', (640, 480)); detection = predict('object_detection', image); segmentation = predict('segmentation', image); assert detection['model_status'] == 'yolov5s', detection; assert segmentation['model_status'] == 'yolov5s-seg', segmentation; print('YOLOv5 detection and segmentation smoke tests passed')"
       - docker push "$ECR_REPOSITORY_URI:$IMAGE_TAG"
       - printf '{"image":"%s","model":"s3://%s/%s","build":"%s"}' "$ECR_REPOSITORY_URI:$IMAGE_TAG" "$SOURCE_MODEL_BUCKET" "$SOURCE_MODEL_KEY" "$CODEBUILD_BUILD_ID" > image-detail.json
       - |
@@ -85,7 +95,8 @@ phases:
           test -n "$HF_SPACE_ID"
           python scripts/deploy_to_huggingface.py \
             --repo-id "$HF_SPACE_ID" \
-            --model "$MODEL_OUTPUT_PATH"
+            --model "$MODEL_OUTPUT_PATH" \
+            --segmentation-model "$SEGMENTATION_MODEL_OUTPUT_PATH"
         fi
   post_build:
     commands:

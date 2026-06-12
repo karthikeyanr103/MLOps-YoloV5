@@ -59,7 +59,7 @@ See the [animated workflow](architecture/animated-workflow.gif) and the
 | --- | --- | --- |
 | Scene-object classification | `POST /api/v1/classification/predict` | Ranked detected COCO labels |
 | Object counting | `POST /api/v1/counting/predict` | Total and per-class counts |
-| Segmentation | `POST /api/v1/segmentation/predict` | Reserved for `yolov5s-seg` |
+| Segmentation | `POST /api/v1/segmentation/predict` | YOLOv5s-seg masks, labels, coverage, and boxes |
 | Object detection | `POST /api/v1/object-detection/predict` | COCO labels, confidence, and boxes |
 
 Interactive OpenAPI documentation is available at `/docs`; readiness is
@@ -117,8 +117,8 @@ models/object_detection/yolov5s.onnx
 That one detector powers object detection, counting, and detected-scene label
 classification. The service includes letterbox preprocessing, confidence
 filtering, class-aware NMS, COCO labels, and original-image coordinate scaling.
-Segmentation honestly remains inactive until the related `yolov5s-seg` model
-and mask decoder are installed.
+The full build also packages official YOLOv5s-seg, enabling pixel-mask
+segmentation with transparent overlays.
 
 ## AWS Deployment
 
@@ -192,7 +192,7 @@ in [videos/README.md](videos/README.md).
 
 ## Future Improvements
 
-- Add `yolov5s-seg` mask decoding and visual overlays.
+- Add GPU-backed inference and optional larger YOLOv5 model variants.
 - Provision AWS resources with Terraform or AWS CDK.
 - Add ECR vulnerability gates, signed images, and SBOM generation.
 - Add integration tests with LocalStack and ephemeral containers.

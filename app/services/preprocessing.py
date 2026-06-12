@@ -59,10 +59,10 @@ def prepare_yolov5_input(
         Image.Resampling.BILINEAR,
     )
 
-    pad_x = (size - resized_width) / 2
-    pad_y = (size - resized_height) / 2
+    pad_x = round((size - resized_width) / 2)
+    pad_y = round((size - resized_height) / 2)
     canvas = Image.new("RGB", (size, size), color=(114, 114, 114))
-    canvas.paste(resized, (round(pad_x), round(pad_y)))
+    canvas.paste(resized, (pad_x, pad_y))
 
     array = np.asarray(canvas, dtype=np.float32) / 255.0
     tensor = np.transpose(array, (2, 0, 1))[None, ...]

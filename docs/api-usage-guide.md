@@ -48,17 +48,18 @@ Counting:
 Segmentation:
 
 ```json
-{"task":"segmentation","model_status":"not_configured","message":"YOLOv5s is a detector and cannot return masks."}
+{"task":"segmentation","model_status":"yolov5s-seg","segments":[{"label":"person","class_id":0,"confidence":0.91,"coverage_percent":18.4,"box":{"x_min":80,"y_min":42,"x_max":390,"y_max":610}}],"overlay":"data:image/png;base64,..."}
 ```
 
-Object detection:
+The `overlay` field is a transparent PNG data URL containing the decoded
+instance masks. Object detection:
 
 ```json
 {"task":"object_detection","model_status":"yolov5s","detections":[{"label":"person","class_id":0,"confidence":0.92,"box":{"x_min":96,"y_min":86,"x_max":461,"y_max":389}}]}
 ```
 
-`model_status` makes it clear whether YOLOv5s is installed and whether a task
-has a compatible model.
+`model_status` identifies the active detector (`yolov5s`) or segmentation
+model (`yolov5s-seg`).
 
 ## Errors
 

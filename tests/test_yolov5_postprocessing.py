@@ -1,9 +1,16 @@
-"""Focused tests for the default YOLOv5 output decoder."""
+"""Focused tests for the default YOLOv5 output decoders."""
+
+import base64
 
 import numpy as np
 from PIL import Image
 
-from app.services.postprocessing import decode_yolov5, format_yolov5_response
+from app.services.postprocessing import (
+    COCO_NAMES,
+    decode_yolov5,
+    decode_yolov5_segmentation,
+    format_yolov5_response,
+)
 from app.services.preprocessing import prepare_yolov5_input
 
 
@@ -41,3 +48,29 @@ def test_counting_groups_yolov5_detections() -> None:
 
     assert response["total_count"] == 3
     assert response["counts_by_class"] == {"person": 2, "car": 1}
+
+
+def test_segmentation_decoder_returns_mask_and_valid_coco_label() -> None:
+    image = Image.new("RGB", (640, 640))
+    prepared = prepare_yolov5_input(image)
+    output = np.zeros((1, 2, 117), dtype=np.float32)
+    prototypes = np.full((1, 32, 160, 160), -8, dtype=np.float32)
+
+    output[0, 0, :4] = [320, 320, 240, 280]
+    output[0, 0, 4] = 0.95
+    output[0, 0, 5 + 16] = 0.9
+    output[0, 0, 85] = 1
+    prototypes[0, 0, 45:115, 50:110] = 8
+
+    segments, overlay = decode_yolov5_segmentation(
+        output,
+        prototypes,
+        image,
+        prepared,
+    )
+
+    assert len(segments) == 1
+    assert segments[0]["label"] == COCO_NAMES[16] == "dog"
+    assert segments[0]["coverage_percent"] > 0
+    assert overlay.startswith("data:image/png;base64,")
+    assert base64.b64decode(overlay.split(",", 1)[1]).startswith(b"\x89PNG")

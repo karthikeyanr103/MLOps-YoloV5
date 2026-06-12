@@ -70,9 +70,10 @@ labels file.
 
 ## Segmentation
 
-Detection weights cannot produce pixel masks. To enable segmentation, use the
-official `yolov5s-seg.pt` model, export it through YOLOv5 v7.0, and add decoding
-for its detection output plus prototype-mask tensor.
+The full build also downloads official `yolov5s-seg.pt`, exports it through
+YOLOv5 v7.0, and packages `models/segmentation/yolov5s-seg.onnx`. The service
+decodes its detection tensor and 32-channel prototype-mask tensor into a
+transparent overlay and per-object segment metadata.
 
 YOLOv5 code and pretrained weights are third-party artifacts governed by
 Ultralytics' applicable license. Review that license before commercial use.

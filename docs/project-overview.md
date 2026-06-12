@@ -11,8 +11,8 @@ repeat, audit, or explain to stakeholders.
 MLOps-YoloV5 treats a model upload as a deployment event. The first deployment
 uses official pretrained YOLOv5s, so no training is required. AWS services
 export and package the model, Docker provides a reproducible runtime, and
-FastAPI serves detection-based computer vision use cases through one
-application.
+FastAPI serves detection and segmentation computer vision use cases through
+one application.
 
 ## Audience
 
@@ -30,7 +30,10 @@ application.
 - Official YOLOv5s weights provide real COCO detection without committing a
   large model binary to Git.
 - Detection output is reused for object counting and detected-scene labels.
-- Segmentation is clearly marked inactive until `yolov5s-seg` is integrated.
+- Official YOLOv5s-seg weights provide pixel masks through a separate ONNX
+  session and NumPy/Pillow mask decoder.
+- ONNX metadata is validated so class IDs retain the official 80-label COCO
+  order.
 - Credentials are externalized, IAM roles are preferred, and large model
   artifacts are excluded from Git.
 - Failure notifications and immutable image tags make releases observable and
